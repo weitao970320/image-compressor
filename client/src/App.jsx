@@ -105,6 +105,7 @@ export default function App() {
   const [showPresetInput, setShowPresetInput] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [downloadUrl, setDownloadUrl] = useState(null);
+  const [downloadName, setDownloadName] = useState('processed_images.zip');
   const [showDownloadNotif, setShowDownloadNotif] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -198,6 +199,11 @@ export default function App() {
     setDownloadUrl(null);
     setShowDownloadNotif(false);
 
+    // 压缩包名称取首个文件名，保证每次有区别
+    const firstBase = (files[0]?.name || '').replace(/\.[^.]+$/, '') || 'processed_images';
+    const zipName = `${firstBase}_processed.zip`;
+    setDownloadName(zipName);
+
     try {
       const out = await processFiles(files, options, () => {});
       setResults({ results: out.results });
@@ -209,7 +215,7 @@ export default function App() {
       // 自动下载
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'processed_images.zip';
+      link.download = zipName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -225,7 +231,7 @@ export default function App() {
     if (downloadUrl) {
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = 'processed_images.zip';
+      link.download = downloadName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -250,11 +256,11 @@ export default function App() {
         <div className="container header__inner">
           <div className="header__brand">
             <div className="header__logo">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              <svg viewBox="0 0 24 24" fill="none">
+                <text x="12" y="18" fontFamily="'Plus Jakarta Sans', system-ui, sans-serif" fontSize="16" fontWeight="800" textAnchor="middle" fill="currentColor">M</text>
               </svg>
             </div>
-            <span className="header__title">图片压缩工坊</span>
+            <span className="header__title">小明图像处理</span>
           </div>
           <button className="theme-toggle" onClick={handleThemeToggle} aria-label="切换亮色/暗色模式" title="切换亮色/暗色模式">
             <svg className="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -630,7 +636,7 @@ export default function App() {
 
       <footer className="footer">
         <div className="container">
-          小明的图片压缩工具 · Xiaoming Compress · 100% 浏览器本地处理，图片不出本机
+          小明图像处理 · Xiaoming Compress · 100% 浏览器本地处理，图片不出本机
         </div>
       </footer>
     </>

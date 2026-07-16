@@ -44,7 +44,7 @@ export async function createZip(files) {
     const lh = new DataView(new ArrayBuffer(30));
     lh.setUint32(0, 0x04034b50, true); // 本地文件头签名
     lh.setUint16(4, 20, true);          // 版本
-    lh.setUint16(6, 0, true);           // 通用标志
+    lh.setUint16(6, 0x0800, true);      // 通用标志：bit11=文件名 UTF-8（修复中文名乱码）
     lh.setUint16(8, 0, true);           // 压缩方法 = 0 (store)
     lh.setUint16(10, time, true);
     lh.setUint16(12, date, true);
@@ -59,7 +59,7 @@ export async function createZip(files) {
     cd.setUint32(0, 0x02014b50, true); // 中央目录头签名
     cd.setUint16(4, 20, true);
     cd.setUint16(6, 20, true);
-    cd.setUint16(8, 0, true);
+    cd.setUint16(8, 0x0800, true);      // 通用标志：bit11=文件名 UTF-8（与本地头一致）
     cd.setUint16(10, 0, true);
     cd.setUint16(12, time, true);
     cd.setUint16(14, date, true);

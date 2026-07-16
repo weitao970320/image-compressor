@@ -296,9 +296,10 @@ body {
   justify-content: center;
   min-height: 320px;
   padding: var(--space-3xl) var(--space-xl);
-  border: 2px dashed var(--color-border);
+  border: 2px dashed rgba(59, 130, 246, 0.5);
   border-radius: var(--radius-lg);
-  background: var(--glass-bg-light);
+  background: var(--glass-bg);
+  box-shadow: var(--glow-upload), 0 0 0 4px rgba(59, 130, 246, 0.06);
   cursor: pointer;
   transition: all 0.35s ease;
   text-align: center;
@@ -311,14 +312,13 @@ body {
   inset: -2px;
   border-radius: var(--radius-lg);
   background: radial-gradient(ellipse at center, rgba(59,130,246,0.08) 0%, transparent 70%);
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.45s ease;
   z-index: 0;
 }
 .upload-zone:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: var(--glass-bg);
-  box-shadow: var(--glow-upload), 0 0 0 4px rgba(59, 130, 246, 0.06);
+  border-color: rgba(59, 130, 246, 0.75);
+  box-shadow: var(--glow-upload), 0 0 0 6px rgba(59, 130, 246, 0.1);
 }
 .upload-zone:hover::before { opacity: 1; }
 .upload-zone--drag-over {
@@ -333,8 +333,9 @@ body {
 .upload-zone__icon-ring {
   width: 72px; height: 72px;
   border-radius: 50%;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,9 +345,6 @@ body {
   z-index: 1;
 }
 .upload-zone:hover .upload-zone__icon-ring {
-  background: rgba(59, 130, 246, 0.14);
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
   transform: scale(1.06);
 }
 .upload-zone__icon-ring svg { width: 30px; height: 30px; color: var(--color-accent-a); }

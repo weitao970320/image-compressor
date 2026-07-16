@@ -2,7 +2,7 @@
   <img src="client/public/favicon.svg" width="96" alt="Xiaoming Compress Logo" />
 </p>
 
-<h1 align="center">小明的图片压缩工具 · Xiaoming Compress</h1>
+<h1 align="center">小明图像处理 · Xiaoming Compress</h1>
 
 <p align="center">
   <b>100% 浏览器本地运行的批量图片压缩神器</b><br/>
@@ -30,7 +30,7 @@
 
 ## 🎯 一句话介绍
 
-> **小明的图片压缩工具（Xiaoming Compress）** 是一款开箱即用的批量图片处理 Web 应用。
+> **小明图像处理（Xiaoming Compress）** 是一款开箱即用的批量图片处理 Web 应用。
 > 你只需要在上传区里选好设置、拖入图片、点一下「开始处理」，剩下的交给浏览器 ——
 > **所有像素处理都在你的设备上完成，图片永远不会离开你的电脑。**
 
