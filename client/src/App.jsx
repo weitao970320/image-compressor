@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-
-const API_BASE = '/api';
+import { processFiles } from './processor';
 
 // ========== 系统预设 ==========
 const SYSTEM_PRESETS = [
@@ -189,7 +188,7 @@ export default function App() {
     if (activePreset === presetId) setActivePreset(null);
   };
 
-  // 处理提交
+  // 处理提交（纯浏览器端，无需服务器）
   const handleProcess = async () => {
     if (files.length === 0) { setError('请先上传图片'); return; }
 
@@ -199,36 +198,23 @@ export default function App() {
     setDownloadUrl(null);
     setShowDownloadNotif(false);
 
-    const formData = new FormData();
-    files.forEach(file => formData.append('images', file));
-
-    const cleanOptions = { ...options };
-    cleanOptions.width = options.width === '' ? null : parseInt(options.width);
-    cleanOptions.height = options.height === '' ? null : parseInt(options.height);
-    formData.append('options', JSON.stringify(cleanOptions));
-
     try {
-      const response = await fetch(`${API_BASE}/process`, { method: 'POST', body: formData });
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: '处理失败' }));
-        throw new Error(err.error || '处理失败');
-      }
-      const data = await response.json();
-      setResults(data);
-      setDownloadUrl(data.downloadUrl);
+      const out = await processFiles(files, options, () => {});
+      setResults({ results: out.results });
+
+      const url = URL.createObjectURL(out.zipBlob);
+      setDownloadUrl(url);
       setShowDownloadNotif(true);
 
       // 自动下载
-      if (data.downloadUrl) {
-        const link = document.createElement('a');
-        link.href = data.downloadUrl;
-        link.download = 'processed_images.zip';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'processed_images.zip';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || '处理失败');
     } finally {
       setProcessing(false);
     }
@@ -460,8 +446,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 质量 */}
-              {options.format !== 'ico' && options.format !== 'original' && (
+              {/* 质量（JPEG / WebP 可调；PNG 为无损，不在此控制） */}
+              {options.format !== 'ico' && options.format !== 'original' && options.format !== 'png' && (
                 <div className="settings-group">
                   <div className="settings-group__label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -472,6 +458,19 @@ export default function App() {
                     <span className="quality-value">{options.quality}%</span>
                   </div>
                   <div className="quality-labels"><span>小文件</span><span>高质量</span></div>
+                </div>
+              )}
+
+              {/* PNG 无损提示 */}
+              {options.format === 'png' && (
+                <div className="settings-group">
+                  <div className="settings-group__label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    无损格式
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: 0 }}>
+                    PNG 为无损压缩，体积主要由分辨率决定。降低尺寸可获得更明显的大小收益。
+                  </p>
                 </div>
               )}
 
@@ -527,77 +526,16 @@ export default function App() {
 
             {showAdvanced && (
               <div className="advanced-panel">
-                {options.format === 'png' && (
-                  <>
-                    <div className="advanced-row">
-                      <span className="advanced-row__label">无损压缩</span>
-                      <label className="toggle-switch">
-                        <input type="checkbox" checked={options.lossless} onChange={(e) => updateOption('lossless', e.target.checked)} />
-                        <span className="toggle-switch__slider" />
-                      </label>
-                    </div>
-                    {!options.lossless && (
-                      <>
-                        <div className="advanced-row">
-                          <div style={{ width: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', marginBottom: 4 }}>
-                              <span>颜色数</span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-accent-a)' }}>{options.colors}</span>
-                            </div>
-                            <input type="range" className="slider" min="2" max="256" value={options.colors} onChange={(e) => updateOption('colors', parseInt(e.target.value))} />
-                          </div>
-                        </div>
-                        <div className="advanced-row">
-                          <div style={{ width: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', marginBottom: 4 }}>
-                              <span>抖动</span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-accent-a)' }}>{options.dither}</span>
-                            </div>
-                            <input type="range" className="slider" min="0" max="1" step="0.1" value={options.dither} onChange={(e) => updateOption('dither', parseFloat(e.target.value))} />
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-
-                {options.format === 'webp' && (
-                  <>
-                    <div className="advanced-row">
-                      <span className="advanced-row__label">无损压缩</span>
-                      <label className="toggle-switch">
-                        <input type="checkbox" checked={options.lossless} onChange={(e) => updateOption('lossless', e.target.checked)} />
-                        <span className="toggle-switch__slider" />
-                      </label>
-                    </div>
-                    {!options.lossless && (
-                      <div className="advanced-row">
-                        <div style={{ width: '100%' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', marginBottom: 4 }}>
-                            <span>压缩努力度</span><span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-accent-a)' }}>{options.effort}/6</span>
-                          </div>
-                          <input type="range" className="slider" min="0" max="6" value={options.effort} onChange={(e) => updateOption('effort', parseInt(e.target.value))} />
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {options.format === 'jpeg' && (
-                  <div className="advanced-row">
-                    <span className="advanced-row__label">渐进式 JPEG</span>
-                    <label className="toggle-switch">
-                      <input type="checkbox" checked={options.progressive} onChange={(e) => updateOption('progressive', e.target.checked)} />
-                      <span className="toggle-switch__slider" />
-                    </label>
-                  </div>
-                )}
-
                 <div className="advanced-row">
-                  <span className="advanced-row__label">移除元数据 (EXIF)</span>
-                  <label className="toggle-switch">
-                    <input type="checkbox" checked={options.stripMetadata} onChange={(e) => updateOption('stripMetadata', e.target.checked)} />
-                    <span className="toggle-switch__slider" />
-                  </label>
+                  <span className="advanced-row__label">隐私保护</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    始终启用
+                  </span>
                 </div>
+                <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: '2px 0 0' }}>
+                  所有处理均在你的浏览器本地完成，图片不会上传到任何服务器；Canvas 渲染过程会自动剥离 EXIF 等元数据。
+                </p>
               </div>
             )}
           </section>
@@ -681,9 +619,9 @@ export default function App() {
               技术栈
             </div>
             <div className="tech-footer__items">
-              <span>基于 <strong>Sharp / libvips</strong>，比 ImageMagick 快 4–5 倍</span>
-              <span>JPEG 使用 <strong>MozJPEG</strong> 编码器，压缩率更高</span>
-              <span>流式处理，内存占用低，支持大批量</span>
+              <span>纯 <strong>浏览器端</strong> 运行，无需上传服务器</span>
+              <span>基于 <strong>Canvas API</strong> 完成缩放 / 裁切 / 编码</span>
+              <span>自实现 <strong>ZIP 打包</strong>，零第三方依赖</span>
               <span>输出格式：<strong>{currentFormat?.label || 'JPEG'}</strong></span>
             </div>
           </div>
@@ -692,7 +630,7 @@ export default function App() {
 
       <footer className="footer">
         <div className="container">
-          图片压缩工坊 · 基于 Sharp + React · 所有处理在服务器端完成，保障隐私和处理速度
+          小明的图片压缩工具 · Xiaoming Compress · 100% 浏览器本地处理，图片不出本机
         </div>
       </footer>
     </>
