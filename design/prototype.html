@@ -1,0 +1,2283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片压缩工坊 — 批量图片压缩与格式转换</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ================================================================
+       DESIGN SYSTEM TOKENS — 液态光 Liquid Light
+       ================================================================ */
+    :root {
+      /* Colors */
+      --color-bg: #0f1119;
+      --color-surface: #1a1d28;
+      --color-text: #e8eaf0;
+      --color-text-secondary: #8b8fa8;
+      --color-text-tertiary: #5b5f78;
+      --color-accent-a: #3b82f6;
+      --color-accent-b: #8b5cf6;
+      --color-success: #34d399;
+      --color-warning: #fbbf24;
+      --color-error: #f87171;
+      --color-border: #2a2d3a;
+      --color-border-light: rgba(255,255,255,0.06);
+
+      /* Glass */
+      --glass-bg: rgba(26, 29, 40, 0.65);
+      --glass-bg-hover: rgba(26, 29, 40, 0.85);
+      --glass-bg-light: rgba(26, 29, 40, 0.4);
+      --glass-border: rgba(255,255,255,0.06);
+      --glass-highlight: rgba(255,255,255,0.04);
+      --glass-blur: 20px;
+
+      /* Glow */
+      --glow-blue: 0 0 40px rgba(59, 130, 246, 0.15), 0 0 80px rgba(59, 130, 246, 0.06);
+      --glow-violet: 0 0 40px rgba(139, 92, 246, 0.15), 0 0 80px rgba(139, 92, 246, 0.06);
+      --glow-mixed: 0 0 60px rgba(59, 130, 246, 0.12), 0 0 120px rgba(139, 92, 246, 0.08);
+      --glow-upload: 0 0 80px rgba(59, 130, 246, 0.1), 0 0 160px rgba(139, 92, 246, 0.05);
+
+      /* Typography */
+      --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-body: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+      /* Spacing (4px base) */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 24px;
+      --space-2xl: 32px;
+      --space-3xl: 48px;
+      --space-4xl: 64px;
+      --space-5xl: 96px;
+
+      /* Radius */
+      --radius-sharp: 2px;
+      --radius-subtle: 6px;
+      --radius-normal: 10px;
+      --radius-lg: 16px;
+      --radius-pill: 9999px;
+
+      /* Shadows */
+      --shadow-subtle: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-normal: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-elevated: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    /* ================================================================
+       RESET & BASE
+       ================================================================ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.6;
+      color: var(--color-text);
+      background-color: var(--color-bg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Subtle grid texture on body */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Ambient light orbs */
+    body::after {
+      content: '';
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+      top: -200px;
+      right: -150px;
+      pointer-events: none;
+      z-index: 0;
+      animation: ambientFloat 12s ease-in-out infinite alternate;
+    }
+
+    @keyframes ambientFloat {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-40px, 30px) scale(1.1); }
+    }
+
+    /* Second ambient orb */
+    .ambient-orb-2 {
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%);
+      bottom: -200px;
+      left: -150px;
+      pointer-events: none;
+      z-index: 0;
+      animation: ambientFloat2 15s ease-in-out infinite alternate;
+    }
+
+    @keyframes ambientFloat2 {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(50px, -40px) scale(1.15); }
+    }
+
+    /* ================================================================
+       GLASS PANEL MIXIN (reusable via class)
+       ================================================================ */
+    .glass-panel {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-top: 1px solid var(--glass-highlight);
+      border-radius: var(--radius-normal);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    .glass-panel--light {
+      background: var(--glass-bg-light);
+    }
+
+    .glass-panel--hover:hover {
+      background: var(--glass-bg-hover);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    /* ================================================================
+       LAYOUT
+       ================================================================ */
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 var(--space-xl);
+    }
+
+    /* ================================================================
+       HEADER
+       ================================================================ */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 17, 25, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .header__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+
+    .header__brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .header__logo {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-subtle);
+      background: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+    }
+
+    .header__logo svg {
+      width: 18px;
+      height: 18px;
+      color: #fff;
+    }
+
+    .header__title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+
+    .header__subtitle {
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .header__badges {
+      display: flex;
+      gap: var(--space-sm);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.625rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    .badge--glass {
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      color: var(--color-text-secondary);
+    }
+
+    .badge--accent {
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      color: var(--color-accent-a);
+    }
+
+    /* ================================================================
+       MAIN CONTENT
+       ================================================================ */
+    .main {
+      flex: 1;
+      padding: var(--space-3xl) 0 var(--space-4xl);
+    }
+
+    /* ================================================================
+       PRESET CHIPS
+       ================================================================ */
+    .presets-section {
+      margin-bottom: var(--space-xl);
+    }
+
+    .presets-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .presets-label__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+    }
+
+    .presets-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+    }
+
+    .preset-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .preset-chip:hover {
+      color: var(--color-text);
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(26, 29, 40, 0.6);
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.08);
+    }
+
+    .preset-chip:active {
+      transform: scale(0.97);
+    }
+
+    .preset-chip:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .preset-chip--active {
+      color: var(--color-accent-a);
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.1);
+    }
+
+    .preset-chip__indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .preset-chip--active .preset-chip__indicator {
+      opacity: 1;
+    }
+
+    /* ================================================================
+       UPLOAD ZONE — THE HERO
+       ================================================================ */
+    .upload-section {
+      margin-bottom: var(--space-xl);
+    }
+
+    .upload-zone {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 260px;
+      padding: var(--space-3xl) var(--space-xl);
+      border: 2px dashed var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg-light);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Inner glow on hover */
+    .upload-zone::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(ellipse at center, rgba(59,130,246,0.06) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .upload-zone:hover::before {
+      opacity: 1;
+    }
+
+    .upload-zone:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      background: rgba(26, 29, 40, 0.5);
+      box-shadow: var(--glow-upload);
+    }
+
+    .upload-zone:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .upload-zone--drag-over {
+      border-color: var(--color-accent-a) !important;
+      background: rgba(59, 130, 246, 0.06) !important;
+      box-shadow: var(--glow-blue) !important;
+    }
+
+    .upload-zone--drag-over::before {
+      opacity: 1;
+      background: radial-gradient(ellipse at center, rgba(59,130,246,0.1) 0%, transparent 60%);
+    }
+
+    .upload-zone__icon-ring {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-xl);
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone:hover .upload-zone__icon-ring {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.25);
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.15);
+      transform: scale(1.05);
+    }
+
+    .upload-zone__icon-ring svg {
+      width: 28px;
+      height: 28px;
+      color: var(--color-accent-a);
+    }
+
+    .upload-zone__title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--color-text);
+      margin-bottom: var(--space-xs);
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone__desc {
+      font-size: 0.8125rem;
+      color: var(--color-text-secondary);
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone__hint {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-lg);
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.04);
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone__hint span {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .upload-zone__hint-divider {
+      width: 1px;
+      height: 10px;
+      background: var(--color-border);
+    }
+
+    /* ================================================================
+       FILE LIST
+       ================================================================ */
+    .filelist-section {
+      margin-bottom: var(--space-xl);
+      animation: fadeSlideIn 0.35s ease;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .filelist-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-md);
+    }
+
+    .filelist-header__left {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .filelist-header__count {
+      color: var(--color-accent-a);
+      font-weight: 700;
+    }
+
+    .filelist-header__clear {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+    }
+
+    .filelist-header__clear:hover {
+      color: var(--color-error);
+      border-color: rgba(248, 113, 113, 0.2);
+      background: rgba(248, 113, 113, 0.06);
+    }
+
+    .filelist-header__clear:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .filelist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: var(--space-sm);
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .filelist-grid::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .filelist-grid::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .filelist-grid::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 2px;
+    }
+
+    .file-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-subtle);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      transition: all 0.2s;
+      animation: fadeSlideIn 0.3s ease;
+    }
+
+    .file-card:hover {
+      border-color: rgba(255,255,255,0.1);
+      background: var(--glass-bg-hover);
+    }
+
+    .file-card__thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-card__thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .file-card__thumb svg {
+      width: 18px;
+      height: 18px;
+      color: var(--color-text-tertiary);
+    }
+
+    .file-card__info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-card__name {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-card__size {
+      font-size: 0.625rem;
+      font-family: var(--font-mono);
+      color: var(--color-text-tertiary);
+    }
+
+    .file-card__remove {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: var(--color-error);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.2s;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .file-card:hover .file-card__remove {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .file-card__remove:hover {
+      background: rgba(248, 113, 113, 0.25);
+    }
+
+    .file-card__remove:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 1px;
+    }
+
+    /* ================================================================
+       SETTINGS PANEL
+       ================================================================ */
+    .settings-panel {
+      padding: var(--space-xl);
+      margin-bottom: var(--space-xl);
+      animation: fadeSlideIn 0.4s ease;
+    }
+
+    .settings-panel__header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-xl);
+    }
+
+    .settings-panel__header svg {
+      width: 16px;
+      height: 16px;
+      color: var(--color-text-tertiary);
+    }
+
+    .settings-panel__header h3 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xl) var(--space-2xl);
+    }
+
+    .settings-group__label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .settings-group__label svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Format buttons */
+    .format-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+    }
+
+    .format-btn {
+      padding: 6px 12px;
+      border-radius: var(--radius-subtle);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+      white-space: nowrap;
+    }
+
+    .format-btn:hover {
+      color: var(--color-text);
+      border-color: rgba(255,255,255,0.1);
+      background: rgba(26, 29, 40, 0.6);
+    }
+
+    .format-btn:active {
+      transform: scale(0.97);
+    }
+
+    .format-btn:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .format-btn--active {
+      color: var(--color-accent-a);
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    /* Quality slider */
+    .quality-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .quality-value {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-accent-a);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--color-border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      border: 2px solid var(--color-bg);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+    }
+
+    .slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      border: 2px solid var(--color-bg);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+    }
+
+    .slider:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 4px;
+    }
+
+    .quality-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.625rem;
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Dimension inputs */
+    .dimension-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .input-field {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: var(--radius-subtle);
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--color-text);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--color-border);
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    .input-field::placeholder {
+      color: var(--color-text-tertiary);
+    }
+
+    .input-field:hover {
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .input-field:focus {
+      border-color: var(--color-accent-a);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .dimension-sep {
+      color: var(--color-text-tertiary);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    /* Fit select */
+    .select-field {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: var(--radius-subtle);
+      font-size: 0.75rem;
+      font-family: var(--font-body);
+      color: var(--color-text);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8fa8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 28px;
+    }
+
+    .select-field:hover {
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .select-field:focus {
+      border-color: var(--color-accent-a);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* ICO size chips */
+    .ico-sizes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+    }
+
+    .ico-size-chip {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .ico-size-chip:hover {
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .ico-size-chip:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .ico-size-chip--active {
+      color: var(--color-accent-a);
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    /* Advanced toggle */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 0;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+      font-family: var(--font-body);
+      margin-top: var(--space-md);
+    }
+
+    .advanced-toggle:hover {
+      color: var(--color-text-secondary);
+    }
+
+    .advanced-toggle:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+      border-radius: var(--radius-sharp);
+    }
+
+    .advanced-toggle__chevron {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.2s;
+    }
+
+    .advanced-toggle--open .advanced-toggle__chevron {
+      transform: rotate(90deg);
+    }
+
+    .advanced-panel {
+      margin-top: var(--space-md);
+      padding: var(--space-lg);
+      border-radius: var(--radius-subtle);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.04);
+      display: none;
+      animation: fadeSlideIn 0.25s ease;
+    }
+
+    .advanced-panel--open {
+      display: block;
+    }
+
+    .advanced-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-sm) 0;
+    }
+
+    .advanced-row + .advanced-row {
+      border-top: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .advanced-row__label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .advanced-row__sub {
+      margin-top: var(--space-sm);
+      padding-top: 0;
+      border-top: none;
+    }
+
+    /* Checkbox toggle */
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-switch__slider {
+      position: absolute;
+      inset: 0;
+      background: var(--color-border);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch__slider::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 2px;
+      top: 2px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch input:checked + .toggle-switch__slider {
+      background: var(--color-accent-a);
+    }
+
+    .toggle-switch input:checked + .toggle-switch__slider::after {
+      transform: translateX(16px);
+    }
+
+    .toggle-switch input:focus-visible + .toggle-switch__slider {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    /* Advanced sub slider */
+    .advanced-slider {
+      margin-top: var(--space-sm);
+      padding-left: 0;
+    }
+
+    /* ================================================================
+       PROCESS BUTTON
+       ================================================================ */
+    .process-section {
+      margin-bottom: var(--space-xl);
+      animation: fadeSlideIn 0.35s ease;
+    }
+
+    .process-btn {
+      width: 100%;
+      padding: 14px 24px;
+      border-radius: var(--radius-normal);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: var(--font-body);
+      color: #fff;
+      background: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      box-shadow: 0 4px 24px rgba(59, 130, 246, 0.25);
+    }
+
+    .process-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .process-btn:hover::after {
+      opacity: 1;
+    }
+
+    .process-btn:hover {
+      box-shadow: 0 6px 32px rgba(59, 130, 246, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .process-btn:active {
+      transform: scale(0.98) translateY(0);
+      box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
+    }
+
+    .process-btn:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 3px;
+    }
+
+    .process-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .process-btn:disabled::after {
+      opacity: 0;
+    }
+
+    .process-btn__spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ================================================================
+       RESULTS
+       ================================================================ */
+    .results-section {
+      animation: fadeSlideIn 0.4s ease;
+    }
+
+    .results-section__header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .results-section__header svg {
+      width: 14px;
+      height: 14px;
+      color: var(--color-success);
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+    }
+
+    .stat-card {
+      padding: var(--space-lg);
+      border-radius: var(--radius-normal);
+      text-align: center;
+      animation: fadeSlideIn 0.35s ease;
+    }
+
+    .stat-card__label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      margin-bottom: var(--space-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .stat-card__value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-text);
+      font-family: var(--font-mono);
+    }
+
+    .stat-card__value--success {
+      color: var(--color-success);
+    }
+
+    .stat-card__sub {
+      font-size: 0.6875rem;
+      color: var(--color-success);
+      margin-top: 2px;
+    }
+
+    /* Result items */
+    .result-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .result-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .result-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .result-list::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 2px;
+    }
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md) var(--space-lg);
+      border-radius: var(--radius-normal);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      animation: fadeSlideIn 0.3s ease;
+      transition: border-color 0.2s;
+    }
+
+    .result-item:hover {
+      border-color: rgba(255,255,255,0.08);
+    }
+
+    .result-item--success {
+      border-left: 3px solid var(--color-success);
+    }
+
+    .result-item--error {
+      border-left: 3px solid var(--color-error);
+      background: rgba(248, 113, 113, 0.04);
+    }
+
+    .result-item__icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .result-item__icon--success {
+      color: var(--color-success);
+    }
+
+    .result-item__icon--error {
+      color: var(--color-error);
+    }
+
+    .result-item__info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .result-item__name {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-item__meta {
+      font-size: 0.6875rem;
+      font-family: var(--font-mono);
+      color: var(--color-text-tertiary);
+    }
+
+    .result-item__meta .savings {
+      color: var(--color-success);
+      font-weight: 500;
+    }
+
+    .result-item__meta .dimensions {
+      color: var(--color-text-secondary);
+      margin-left: var(--space-sm);
+    }
+
+    .result-item__badge {
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--color-text-secondary);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+
+    /* ================================================================
+       ERROR ALERT
+       ================================================================ */
+    .error-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-md);
+      padding: var(--space-lg);
+      border-radius: var(--radius-normal);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      background: rgba(248, 113, 113, 0.06);
+      border-left: 3px solid var(--color-error);
+      animation: fadeSlideIn 0.3s ease;
+      margin-bottom: var(--space-xl);
+    }
+
+    .error-alert__icon {
+      width: 18px;
+      height: 18px;
+      color: var(--color-error);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .error-alert__title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--color-error);
+      margin-bottom: 2px;
+    }
+
+    .error-alert__desc {
+      font-size: 0.75rem;
+      color: rgba(248, 113, 113, 0.7);
+    }
+
+    /* ================================================================
+       TECH FOOTER
+       ================================================================ */
+    .tech-footer {
+      margin-top: var(--space-2xl);
+      padding: var(--space-lg);
+      border-radius: var(--radius-normal);
+      background: rgba(255,255,255,0.015);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .tech-footer__title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .tech-footer__items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-lg);
+      font-size: 0.6875rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .tech-footer__items strong {
+      color: var(--color-text-secondary);
+      font-weight: 600;
+    }
+
+    /* ================================================================
+       FOOTER
+       ================================================================ */
+    .footer {
+      border-top: 1px solid var(--glass-border);
+      padding: var(--space-xl) 0;
+      text-align: center;
+      font-size: 0.6875rem;
+      color: var(--color-text-tertiary);
+    }
+
+    /* ================================================================
+       RESPONSIVE
+       ================================================================ */
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 var(--space-lg);
+      }
+
+      .header__badges {
+        display: none;
+      }
+
+      .upload-zone {
+        min-height: 200px;
+        padding: var(--space-2xl) var(--space-lg);
+      }
+
+      .upload-zone__icon-ring {
+        width: 48px;
+        height: 48px;
+      }
+
+      .upload-zone__icon-ring svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .upload-zone__title {
+        font-size: 1rem;
+      }
+
+      .settings-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+      }
+
+      .stats-row {
+        grid-template-columns: 1fr;
+        gap: var(--space-sm);
+      }
+
+      .presets-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: var(--space-xs);
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .presets-row::-webkit-scrollbar {
+        height: 0;
+      }
+
+      .filelist-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      }
+
+      .result-item {
+        flex-wrap: wrap;
+      }
+
+      .result-item__badge {
+        margin-left: auto;
+      }
+
+      .tech-footer__items {
+        flex-direction: column;
+        gap: var(--space-xs);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header__subtitle {
+        display: none;
+      }
+
+      .upload-zone {
+        min-height: 180px;
+        padding: var(--space-xl) var(--space-md);
+      }
+
+      .upload-zone__desc {
+        font-size: 0.75rem;
+      }
+
+      .format-grid {
+        gap: 4px;
+      }
+
+      .format-btn {
+        padding: 5px 8px;
+        font-size: 0.6875rem;
+      }
+    }
+
+    /* ================================================================
+       REDUCED MOTION
+       ================================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      body::after,
+      .ambient-orb-2 {
+        display: none;
+      }
+
+      .process-btn__spinner {
+        animation: none;
+        opacity: 0.5;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient orb -->
+  <div class="ambient-orb-2"></div>
+
+  <div class="app-shell">
+    <!-- ================================================================
+         HEADER
+         ================================================================ -->
+    <header class="header">
+      <div class="container header__inner">
+        <div class="header__brand">
+          <div class="header__logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="header__title">图片压缩工坊</div>
+            <div class="header__subtitle">批量处理 · 压缩转换</div>
+          </div>
+        </div>
+        <div class="header__badges">
+          <span class="badge badge--glass">Sharp / libvips</span>
+          <span class="badge badge--accent">高速处理</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================================================================
+         MAIN
+         ================================================================ -->
+    <main class="main">
+      <div class="container">
+
+        <!-- Preset Chips -->
+        <section class="presets-section">
+          <div class="presets-label">
+            <span class="presets-label__dot"></span>
+            快捷预设
+          </div>
+          <div class="presets-row" role="group" aria-label="快捷预设模板">
+            <button class="preset-chip" data-preset="web-photo" onclick="applyPreset('web-photo', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>网页照片优化
+            </button>
+            <button class="preset-chip" data-preset="web-thumb" onclick="applyPreset('web-thumb', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>缩略图生成
+            </button>
+            <button class="preset-chip" data-preset="png-lossless" onclick="applyPreset('png-lossless', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>PNG 无损压缩
+            </button>
+            <button class="preset-chip" data-preset="png-quant" onclick="applyPreset('png-quant', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>PNG 有损量化
+            </button>
+            <button class="preset-chip" data-preset="webp-best" onclick="applyPreset('webp-best', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>WebP 最佳压缩
+            </button>
+            <button class="preset-chip" data-preset="ico-favicon" onclick="applyPreset('ico-favicon', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>Favicon 图标
+            </button>
+            <button class="preset-chip" data-preset="social-media" onclick="applyPreset('social-media', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>社交媒体封面
+            </button>
+            <button class="preset-chip" data-preset="max-compress" onclick="applyPreset('max-compress', this)" aria-pressed="false">
+              <span class="preset-chip__indicator"></span>极限压缩
+            </button>
+          </div>
+        </section>
+
+        <!-- Upload Zone -->
+        <section class="upload-section">
+          <div
+            class="upload-zone"
+            id="uploadZone"
+            role="button"
+            tabindex="0"
+            aria-label="拖拽图片到此处上传，或点击选择文件"
+          >
+            <div class="upload-zone__icon-ring">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="upload-zone__title">拖拽图片到此处，或点击上传</p>
+            <p class="upload-zone__desc">支持 JPG、PNG、WebP、BMP、TIFF、GIF</p>
+            <div class="upload-zone__hint">
+              <span>单文件 ≤ 50MB</span>
+              <span class="upload-zone__hint-divider"></span>
+              <span>最多 50 张</span>
+              <span class="upload-zone__hint-divider"></span>
+              <span>批量处理</span>
+            </div>
+          </div>
+          <input
+            type="file"
+            id="fileInput"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,image/gif"
+            style="display:none"
+          >
+        </section>
+
+        <!-- File List -->
+        <section class="filelist-section" id="fileListSection" style="display:none">
+          <div class="filelist-header">
+            <div class="filelist-header__left">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              已选择 <span class="filelist-header__count" id="fileCount">0</span> 张图片
+            </div>
+            <button class="filelist-header__clear" onclick="clearFiles()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              清空
+            </button>
+          </div>
+          <div class="filelist-grid" id="fileGrid"></div>
+        </section>
+
+        <!-- Process Button -->
+        <section class="process-section" id="processSection" style="display:none">
+          <button class="process-btn" id="processBtn" onclick="handleProcess()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4.5v4L12 15l-9-4.5v-4L12 2z"/><path d="M12 15l9-4.5v4L12 22l-9-4.5v-4L12 15z"/></svg>
+            <span id="processBtnText">开始处理 0 张图片</span>
+          </button>
+        </section>
+
+        <!-- Settings Panel -->
+        <section class="settings-panel glass-panel">
+          <div class="settings-panel__header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            <h3>处理设置</h3>
+          </div>
+
+          <div class="settings-grid">
+            <!-- Format -->
+            <div class="settings-group">
+              <div class="settings-group__label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="4"/><path d="M4 20l5.5-8 3.5 5 2.5-3.5L20 20"/></svg>
+                输出格式
+              </div>
+              <div class="format-grid" role="group" aria-label="输出格式选择">
+                <button class="format-btn format-btn--active" data-format="jpeg" onclick="selectFormat('jpeg', this)">JPEG</button>
+                <button class="format-btn" data-format="png" onclick="selectFormat('png', this)">PNG</button>
+                <button class="format-btn" data-format="webp" onclick="selectFormat('webp', this)">WebP</button>
+                <button class="format-btn" data-format="ico" onclick="selectFormat('ico', this)">ICO</button>
+                <button class="format-btn" data-format="original" onclick="selectFormat('original', this)">保持原格式</button>
+              </div>
+            </div>
+
+            <!-- Quality -->
+            <div class="settings-group" id="qualityGroup">
+              <div class="settings-group__label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                压缩质量
+              </div>
+              <div class="quality-row">
+                <input type="range" class="slider" id="qualitySlider" min="1" max="100" value="80" aria-label="压缩质量" oninput="updateQuality(this.value)">
+                <span class="quality-value" id="qualityValue">80%</span>
+              </div>
+              <div class="quality-labels">
+                <span>小文件</span><span>高质量</span>
+              </div>
+            </div>
+
+            <!-- Dimensions -->
+            <div class="settings-group" id="dimensionGroup">
+              <div class="settings-group__label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                目标尺寸（可选）
+              </div>
+              <div class="dimension-row">
+                <input type="number" class="input-field" id="widthInput" placeholder="宽度" min="1" max="10000" aria-label="目标宽度">
+                <span class="dimension-sep">×</span>
+                <input type="number" class="input-field" id="heightInput" placeholder="高度" min="1" max="10000" aria-label="目标高度">
+                <span class="dimension-sep">px</span>
+              </div>
+              <div style="margin-top: var(--space-sm);">
+                <select class="select-field" id="fitSelect" aria-label="裁切模式" onchange="updateFit(this.value)">
+                  <option value="inside">等比例缩放 — 不超出目标尺寸</option>
+                  <option value="cover">居中裁切 — 填满目标尺寸</option>
+                  <option value="fill">拉伸填充 — 可能变形</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ICO Sizes -->
+            <div class="settings-group" id="icoGroup" style="display:none">
+              <div class="settings-group__label">ICO 包含尺寸</div>
+              <div class="ico-sizes" id="icoSizeContainer" role="group" aria-label="ICO 尺寸选择">
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Toggle -->
+          <button class="advanced-toggle" id="advancedToggle" onclick="toggleAdvanced()" aria-expanded="false">
+            <svg class="advanced-toggle__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            高级选项
+          </button>
+
+          <div class="advanced-panel" id="advancedPanel">
+            <!-- PNG options -->
+            <div id="pngAdvanced" style="display:none">
+              <div class="advanced-row">
+                <span class="advanced-row__label">无损压缩</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="pngLossless" onchange="updatePngLossless(this.checked)">
+                  <span class="toggle-switch__slider"></span>
+                </label>
+              </div>
+              <div id="pngLossyOptions">
+                <div class="advanced-row advanced-row__sub">
+                  <div style="width:100%">
+                    <div style="display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--color-text-tertiary);margin-bottom:4px;">
+                      <span>颜色数</span><span id="colorsValue" style="font-family:var(--font-mono);color:var(--color-accent-a);">256</span>
+                    </div>
+                    <input type="range" class="slider" id="colorsSlider" min="2" max="256" value="256" oninput="updateColors(this.value)">
+                  </div>
+                </div>
+                <div class="advanced-row advanced-row__sub">
+                  <div style="width:100%">
+                    <div style="display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--color-text-tertiary);margin-bottom:4px;">
+                      <span>抖动</span><span id="ditherValue" style="font-family:var(--font-mono);color:var(--color-accent-a);">1.0</span>
+                    </div>
+                    <input type="range" class="slider" id="ditherSlider" min="0" max="1" step="0.1" value="1" oninput="updateDither(this.value)">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- WebP options -->
+            <div id="webpAdvanced" style="display:none">
+              <div class="advanced-row">
+                <span class="advanced-row__label">无损压缩</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="webpLossless" onchange="updateWebpLossless(this.checked)">
+                  <span class="toggle-switch__slider"></span>
+                </label>
+              </div>
+              <div id="webpLossyOptions">
+                <div class="advanced-row advanced-row__sub">
+                  <div style="width:100%">
+                    <div style="display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--color-text-tertiary);margin-bottom:4px;">
+                      <span>压缩努力度</span><span id="effortValue" style="font-family:var(--font-mono);color:var(--color-accent-a);">4/6</span>
+                    </div>
+                    <input type="range" class="slider" id="effortSlider" min="0" max="6" value="4" oninput="updateEffort(this.value)">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- JPEG options -->
+            <div id="jpegAdvanced">
+              <div class="advanced-row">
+                <span class="advanced-row__label">渐进式 JPEG</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="jpegProgressive" checked onchange="updateJpegProgressive(this.checked)">
+                  <span class="toggle-switch__slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Common: Strip metadata -->
+            <div class="advanced-row">
+              <span class="advanced-row__label">移除元数据 (EXIF)</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="stripMetadata" checked onchange="updateStripMetadata(this.checked)">
+                <span class="toggle-switch__slider"></span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Error Alert -->
+        <div class="error-alert" id="errorAlert" style="display:none">
+          <svg class="error-alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <div class="error-alert__title">处理出错</div>
+            <div class="error-alert__desc" id="errorDesc"></div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <section class="results-section" id="resultsSection" style="display:none">
+          <div class="results-section__header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            处理结果
+          </div>
+          <div class="stats-row" id="statsRow"></div>
+          <div class="result-list" id="resultList"></div>
+        </section>
+
+        <!-- Tech Footer -->
+        <div class="tech-footer">
+          <div class="tech-footer__title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            技术栈
+          </div>
+          <div class="tech-footer__items">
+            <span>基于 <strong>Sharp / libvips</strong>，比 ImageMagick 快 4–5 倍</span>
+            <span>JPEG 使用 <strong>MozJPEG</strong> 编码器，压缩率更高</span>
+            <span>流式处理，内存占用低，支持大批量</span>
+            <span>输出格式：<strong id="techFormat">JPEG</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        图片压缩工坊 · 基于 Sharp + React · 所有处理在浏览器端完成，保障隐私和处理速度
+      </div>
+    </footer>
+  </div>
+
+  <!-- ================================================================
+       INTERACTIVITY SCRIPT
+       ================================================================ -->
+  <script>
+    // ---- State ----
+    const state = {
+      files: [],
+      options: {
+        format: 'jpeg',
+        quality: 80,
+        width: null,
+        height: null,
+        fit: 'inside',
+        lossless: false,
+        effort: 4,
+        colors: 256,
+        dither: 1.0,
+        progressive: true,
+        stripMetadata: true,
+        icoSizes: [16, 32, 48, 64, 128, 256]
+      },
+      activePreset: null,
+      processing: false,
+      results: null,
+      error: null
+    };
+
+    const PRESETS = {
+      'web-photo':    { format: 'jpeg', quality: 85, width: 1920, height: null, fit: 'inside', progressive: true, stripMetadata: true },
+      'web-thumb':    { format: 'jpeg', quality: 75, width: 400, height: 300, fit: 'cover', progressive: true, stripMetadata: true },
+      'png-lossless': { format: 'png', quality: 100, width: null, height: null, lossless: true, colors: 256, stripMetadata: true },
+      'png-quant':    { format: 'png', quality: 80, width: null, height: null, lossless: false, colors: 128, dither: 0.8, stripMetadata: true },
+      'webp-best':    { format: 'webp', quality: 80, width: null, height: null, effort: 6, stripMetadata: true },
+      'ico-favicon':  { format: 'ico', quality: 100, width: 256, height: 256, fit: 'cover', icoSizes: [16, 32, 48, 64, 128, 256] },
+      'social-media': { format: 'jpeg', quality: 90, width: 1200, height: 630, fit: 'cover', progressive: true, stripMetadata: true },
+      'max-compress': { format: 'jpeg', quality: 60, width: 1280, height: null, fit: 'inside', progressive: false, stripMetadata: true }
+    };
+
+    // ---- DOM refs ----
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    const uploadZone = $('#uploadZone');
+    const fileInput = $('#fileInput');
+    const fileListSection = $('#fileListSection');
+    const fileGrid = $('#fileGrid');
+    const fileCount = $('#fileCount');
+    const processSection = $('#processSection');
+    const processBtn = $('#processBtn');
+    const processBtnText = $('#processBtnText');
+    const errorAlert = $('#errorAlert');
+    const errorDesc = $('#errorDesc');
+    const resultsSection = $('#resultsSection');
+    const statsRow = $('#statsRow');
+    const resultListEl = $('#resultList');
+    const techFormat = $('#techFormat');
+
+    // ---- Upload Zone Events ----
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('upload-zone--drag-over'); });
+    uploadZone.addEventListener('dragleave', (e) => { e.preventDefault(); uploadZone.classList.remove('upload-zone--drag-over'); });
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('upload-zone--drag-over');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files);
+      fileInput.value = '';
+    });
+
+    // ---- File handling ----
+    function handleFiles(fileList) {
+      const validExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'gif'];
+      const newFiles = Array.from(fileList).filter(f => {
+        const ext = f.name.split('.').pop()?.toLowerCase();
+        return validExts.includes(ext);
+      });
+
+      const existingKeys = new Set(state.files.map(f => f.name + f.size));
+      const unique = newFiles.filter(f => !existingKeys.has(f.name + f.size));
+
+      if (unique.length > 0) {
+        state.files = [...state.files, ...unique];
+        state.results = null;
+        state.error = null;
+        renderAll();
+      }
+    }
+
+    function removeFile(index) {
+      state.files.splice(index, 1);
+      state.results = null;
+      renderAll();
+    }
+
+    function clearFiles() {
+      state.files = [];
+      state.results = null;
+      state.error = null;
+      renderAll();
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    // ---- Preset ----
+    function applyPreset(presetId, btn) {
+      const preset = PRESETS[presetId];
+      if (!preset) return;
+
+      state.options = { ...state.options, ...preset };
+      state.activePreset = presetId;
+
+      // Update UI
+      $$('.preset-chip').forEach(c => { c.classList.remove('preset-chip--active'); c.setAttribute('aria-pressed', 'false'); });
+      btn.classList.add('preset-chip--active');
+      btn.setAttribute('aria-pressed', 'true');
+
+      syncUIFromOptions();
+    }
+
+    // ---- Format ----
+    function selectFormat(format, btn) {
+      state.options.format = format;
+      state.activePreset = null;
+      $$('.preset-chip').forEach(c => { c.classList.remove('preset-chip--active'); c.setAttribute('aria-pressed', 'false'); });
+      $$('.format-btn').forEach(b => b.classList.remove('format-btn--active'));
+      btn.classList.add('format-btn--active');
+      syncUIFromOptions();
+      updateFormatSpecificUI();
+    }
+
+    // ---- Quality ----
+    function updateQuality(val) {
+      state.options.quality = parseInt(val);
+      state.activePreset = null;
+      $$('.preset-chip').forEach(c => { c.classList.remove('preset-chip--active'); c.setAttribute('aria-pressed', 'false'); });
+      $('#qualityValue').textContent = val + '%';
+    }
+
+    // ---- Fit ----
+    function updateFit(val) {
+      state.options.fit = val;
+    }
+
+    // ---- ICO sizes ----
+    function toggleIcoSize(size) {
+      const idx = state.options.icoSizes.indexOf(size);
+      if (idx >= 0) {
+        state.options.icoSizes = state.options.icoSizes.filter(s => s !== size);
+      } else {
+        state.options.icoSizes = [...state.options.icoSizes, size].sort((a, b) => a - b);
+      }
+      renderIcoSizes();
+    }
+
+    function renderIcoSizes() {
+      const container = $('#icoSizeContainer');
+      const sizes = [16, 32, 48, 64, 128, 256];
+      container.innerHTML = sizes.map(s =>
+        `<button class="ico-size-chip ${state.options.icoSizes.includes(s) ? 'ico-size-chip--active' : ''}" onclick="toggleIcoSize(${s})">${s}×${s}</button>`
+      ).join('');
+    }
+
+    // ---- Advanced ----
+    function toggleAdvanced() {
+      const panel = $('#advancedPanel');
+      const toggle = $('#advancedToggle');
+      const isOpen = panel.classList.contains('advanced-panel--open');
+      if (isOpen) {
+        panel.classList.remove('advanced-panel--open');
+        toggle.classList.remove('advanced-toggle--open');
+        toggle.setAttribute('aria-expanded', 'false');
+      } else {
+        panel.classList.add('advanced-panel--open');
+        toggle.classList.add('advanced-toggle--open');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    function updatePngLossless(val) { state.options.lossless = val; updateAdvancedVisibility(); }
+    function updateColors(val) { state.options.colors = parseInt(val); $('#colorsValue').textContent = val; }
+    function updateDither(val) { state.options.dither = parseFloat(val); $('#ditherValue').textContent = val; }
+    function updateWebpLossless(val) { state.options.lossless = val; updateAdvancedVisibility(); }
+    function updateEffort(val) { state.options.effort = parseInt(val); $('#effortValue').textContent = val + '/6'; }
+    function updateJpegProgressive(val) { state.options.progressive = val; }
+    function updateStripMetadata(val) { state.options.stripMetadata = val; }
+
+    function updateAdvancedVisibility() {
+      const fmt = state.options.format;
+      $('#pngAdvanced').style.display = (fmt === 'png') ? '' : 'none';
+      $('#webpAdvanced').style.display = (fmt === 'webp') ? '' : 'none';
+      $('#jpegAdvanced').style.display = (fmt === 'jpeg') ? '' : 'none';
+
+      if (fmt === 'png') {
+        $('#pngLossyOptions').style.display = state.options.lossless ? 'none' : '';
+      }
+      if (fmt === 'webp') {
+        $('#webpLossyOptions').style.display = state.options.lossless ? 'none' : '';
+      }
+    }
+
+    function updateFormatSpecificUI() {
+      const fmt = state.options.format;
+      // Quality visibility
+      $('#qualityGroup').style.display = (fmt === 'ico' || fmt === 'original') ? 'none' : '';
+      // Dimension visibility
+      $('#dimensionGroup').style.display = (fmt === 'ico') ? 'none' : '';
+      // ICO sizes
+      $('#icoGroup').style.display = (fmt === 'ico') ? '' : 'none';
+      // Tech footer
+      const labels = { jpeg: 'JPEG', png: 'PNG', webp: 'WebP', ico: 'ICO', original: '原始格式' };
+      techFormat.textContent = labels[fmt] || fmt.toUpperCase();
+
+      updateAdvancedVisibility();
+      if (fmt === 'ico') renderIcoSizes();
+    }
+
+    // ---- Sync UI from options ----
+    function syncUIFromOptions() {
+      const o = state.options;
+      $('#qualitySlider').value = o.quality;
+      $('#qualityValue').textContent = o.quality + '%';
+      $('#widthInput').value = o.width || '';
+      $('#heightInput').value = o.height || '';
+      $('#fitSelect').value = o.fit;
+      $('#pngLossless').checked = o.lossless;
+      $('#webpLossless').checked = o.lossless;
+      $('#jpegProgressive').checked = o.progressive;
+      $('#stripMetadata').checked = o.stripMetadata;
+      $('#colorsSlider').value = o.colors;
+      $('#colorsValue').textContent = o.colors;
+      $('#ditherSlider').value = o.dither;
+      $('#ditherValue').textContent = o.dither;
+      $('#effortSlider').value = o.effort;
+      $('#effortValue').textContent = o.effort + '/6';
+
+      // Format button
+      $$('.format-btn').forEach(b => {
+        b.classList.toggle('format-btn--active', b.dataset.format === o.format);
+      });
+
+      updateFormatSpecificUI();
+    }
+
+    // ---- Process ----
+    async function handleProcess() {
+      if (state.files.length === 0) {
+        showError('请先上传图片');
+        return;
+      }
+
+      state.processing = true;
+      state.error = null;
+      state.results = null;
+      renderProcessButton();
+
+      // Simulate processing (in real app, this would call the API)
+      // For the prototype, we simulate results
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Generate simulated results
+      const results = state.files.map((file, i) => {
+        const originalSize = file.size;
+        const compressionRatio = 0.3 + (Math.random() * 0.5); // 30-80% of original
+        const outputSize = Math.round(originalSize * compressionRatio);
+        const format = state.options.format === 'original'
+          ? (file.name.split('.').pop()?.toLowerCase() || 'jpeg')
+          : state.options.format;
+
+        return {
+          success: Math.random() > 0.05, // 95% success rate
+          originalName: file.name,
+          originalSize,
+          outputSize,
+          outputWidth: state.options.width || Math.round(800 + Math.random() * 3200),
+          outputHeight: state.options.height || Math.round(600 + Math.random() * 2400),
+          format
+        };
+      });
+
+      state.results = { results };
+      state.processing = false;
+      renderAll();
+    }
+
+    function showError(msg) {
+      state.error = msg;
+      renderAll();
+      setTimeout(() => {
+        state.error = null;
+        renderAll();
+      }, 5000);
+    }
+
+    // ---- Render ----
+    function renderAll() {
+      renderFileList();
+      renderProcessButton();
+      renderError();
+      renderResults();
+    }
+
+    function renderFileList() {
+      if (state.files.length === 0) {
+        fileListSection.style.display = 'none';
+        processSection.style.display = 'none';
+        return;
+      }
+
+      fileListSection.style.display = '';
+      fileCount.textContent = state.files.length;
+
+      fileGrid.innerHTML = state.files.map((file, i) => {
+        const isImage = file.type?.startsWith('image/');
+        const thumbContent = isImage
+          ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}" onload="this.parentElement.querySelector('svg')?.remove()">`
+          : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+
+        return `
+          <div class="file-card">
+            <div class="file-card__thumb">${thumbContent}</div>
+            <div class="file-card__info">
+              <div class="file-card__name" title="${file.name}">${file.name}</div>
+              <div class="file-card__size">${formatSize(file.size)}</div>
+            </div>
+            <button class="file-card__remove" onclick="removeFile(${i})" aria-label="移除 ${file.name}">✕</button>
+          </div>`;
+      }).join('');
+
+      processSection.style.display = '';
+      processBtnText.textContent = `开始处理 ${state.files.length} 张图片`;
+    }
+
+    function renderProcessButton() {
+      if (state.files.length === 0) {
+        processSection.style.display = 'none';
+        return;
+      }
+      processSection.style.display = '';
+
+      if (state.processing) {
+        processBtn.disabled = true;
+        processBtn.innerHTML = '<span class="process-btn__spinner"></span> 处理中...';
+      } else {
+        processBtn.disabled = false;
+        processBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4.5v4L12 15l-9-4.5v-4L12 2z"/><path d="M12 15l9-4.5v4L12 22l-9-4.5v-4L12 15z"/></svg> 开始处理 ${state.files.length} 张图片`;
+      }
+    }
+
+    function renderError() {
+      if (state.error) {
+        errorAlert.style.display = '';
+        errorDesc.textContent = state.error;
+      } else {
+        errorAlert.style.display = 'none';
+      }
+    }
+
+    function renderResults() {
+      if (!state.results) {
+        resultsSection.style.display = 'none';
+        return;
+      }
+
+      resultsSection.style.display = '';
+      const successResults = state.results.results.filter(r => r.success);
+      const totalOrig = successResults.reduce((s, r) => s + r.originalSize, 0);
+      const totalOut = successResults.reduce((s, r) => s + r.outputSize, 0);
+      const ratio = totalOrig > 0 ? ((totalOrig - totalOut) / totalOrig * 100).toFixed(1) : 0;
+
+      statsRow.innerHTML = `
+        <div class="stat-card glass-panel">
+          <div class="stat-card__label">处理数量</div>
+          <div class="stat-card__value">${successResults.length}/${state.results.results.length}</div>
+        </div>
+        <div class="stat-card glass-panel">
+          <div class="stat-card__label">原始大小</div>
+          <div class="stat-card__value">${formatSize(totalOrig)}</div>
+        </div>
+        <div class="stat-card glass-panel">
+          <div class="stat-card__label">压缩后 / 节省</div>
+          <div class="stat-card__value stat-card__value--success">${formatSize(totalOut)}</div>
+          <div class="stat-card__sub">-${ratio}%</div>
+        </div>
+      `;
+
+      resultListEl.innerHTML = state.results.results.map(r => {
+        if (r.success) {
+          const savings = ((r.originalSize - r.outputSize) / r.originalSize * 100).toFixed(1);
+          return `
+            <div class="result-item result-item--success">
+              <svg class="result-item__icon result-item__icon--success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <div class="result-item__info">
+                <div class="result-item__name">${r.originalName}</div>
+                <div class="result-item__meta">
+                  ${formatSize(r.originalSize)} → ${formatSize(r.outputSize)}
+                  <span class="savings">(-${savings}%)</span>
+                  <span class="dimensions">${r.outputWidth}×${r.outputHeight}</span>
+                </div>
+              </div>
+              <span class="result-item__badge">${r.format}</span>
+            </div>`;
+        } else {
+          return `
+            <div class="result-item result-item--error">
+              <svg class="result-item__icon result-item__icon--error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div class="result-item__info">
+                <div class="result-item__name">${r.originalName}</div>
+                <div class="result-item__meta" style="color:var(--color-error)">处理失败</div>
+              </div>
+            </div>`;
+        }
+      }).join('');
+
+      // Scroll to results
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ---- Input listeners ----
+    $('#widthInput').addEventListener('input', function() {
+      state.options.width = this.value ? parseInt(this.value) : null;
+    });
+    $('#heightInput').addEventListener('input', function() {
+      state.options.height = this.value ? parseInt(this.value) : null;
+    });
+
+    // ---- Init ----
+    updateFormatSpecificUI();
+    renderIcoSizes();
+  </script>
+</body>
+</html>

@@ -1,0 +1,2896 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片压缩工坊 — 批量图片压缩与格式转换</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ================================================================
+       DESIGN SYSTEM TOKENS — 液态光 Liquid Light
+       ================================================================ */
+    :root {
+      /* Dark theme (default) */
+      --color-bg: #0f1119;
+      --color-surface: #1a1d28;
+      --color-text: #f0f1f5;
+      --color-text-secondary: #a0a4b8;
+      --color-text-tertiary: #6b6f85;
+      --color-accent-a: #3b82f6;
+      --color-accent-b: #8b5cf6;
+      --color-success: #34d399;
+      --color-warning: #fbbf24;
+      --color-error: #f87171;
+      --color-border: #2a2d3a;
+      --color-border-light: rgba(255,255,255,0.06);
+
+      /* Glass - dark */
+      --glass-bg: rgba(26, 29, 40, 0.65);
+      --glass-bg-hover: rgba(26, 29, 40, 0.85);
+      --glass-bg-light: rgba(26, 29, 40, 0.4);
+      --glass-border: rgba(255,255,255,0.06);
+      --glass-highlight: rgba(255,255,255,0.04);
+      --glass-blur: 20px;
+
+      /* Glow - dark */
+      --glow-blue: 0 0 40px rgba(59, 130, 246, 0.15), 0 0 80px rgba(59, 130, 246, 0.06);
+      --glow-violet: 0 0 40px rgba(139, 92, 246, 0.15), 0 0 80px rgba(139, 92, 246, 0.06);
+      --glow-mixed: 0 0 60px rgba(59, 130, 246, 0.12), 0 0 120px rgba(139, 92, 246, 0.08);
+      --glow-upload: 0 0 80px rgba(59, 130, 246, 0.12), 0 0 160px rgba(139, 92, 246, 0.06);
+
+      /* Ambient glow colors */
+      --ambient-glow-a: rgba(59, 130, 246, 0.07);
+      --ambient-glow-b: rgba(139, 92, 246, 0.06);
+      --ambient-glow-c: rgba(59, 130, 246, 0.04);
+
+      /* Shadows */
+      --shadow-subtle: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-normal: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-elevated: 0 8px 24px rgba(0,0,0,0.5);
+
+      /* Input background */
+      --input-bg: rgba(255,255,255,0.04);
+      --input-bg-focus: rgba(255,255,255,0.06);
+
+      /* Typography */
+      --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-body: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+      /* Spacing (4px base) */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 12px;
+      --space-lg: 16px;
+      --space-xl: 24px;
+      --space-2xl: 32px;
+      --space-3xl: 48px;
+      --space-4xl: 64px;
+      --space-5xl: 96px;
+
+      /* Radius */
+      --radius-sharp: 2px;
+      --radius-subtle: 6px;
+      --radius-normal: 10px;
+      --radius-lg: 16px;
+      --radius-pill: 9999px;
+    }
+
+    /* ================================================================
+       LIGHT THEME — applied when :root does NOT have .dark class.
+       JS sets .dark class at init time based on localStorage or
+       matchMedia('prefers-color-scheme: dark'). No @media needed.
+       ================================================================ */
+    :root:not(.dark) {
+      --color-bg: #f5f5f7;
+      --color-surface: #ffffff;
+      --color-text: #1a1a2e;
+      --color-text-secondary: #555770;
+      --color-text-tertiary: #8889a0;
+      --color-accent-a: #2563eb;
+      --color-accent-b: #7c3aed;
+      --color-success: #059669;
+      --color-warning: #d97706;
+      --color-error: #dc2626;
+      --color-border: #d4d4dc;
+      --color-border-light: rgba(0,0,0,0.06);
+
+      --glass-bg: rgba(255, 255, 255, 0.65);
+      --glass-bg-hover: rgba(255, 255, 255, 0.85);
+      --glass-bg-light: rgba(255, 255, 255, 0.4);
+      --glass-border: rgba(0,0,0,0.06);
+      --glass-highlight: rgba(255,255,255,0.8);
+      --glass-blur: 20px;
+
+      --glow-blue: 0 0 40px rgba(37, 99, 235, 0.1), 0 0 80px rgba(37, 99, 235, 0.04);
+      --glow-violet: 0 0 40px rgba(124, 58, 237, 0.1), 0 0 80px rgba(124, 58, 237, 0.04);
+      --glow-mixed: 0 0 60px rgba(37, 99, 235, 0.08), 0 0 120px rgba(124, 58, 237, 0.05);
+      --glow-upload: 0 0 80px rgba(37, 99, 235, 0.08), 0 0 160px rgba(124, 58, 237, 0.04);
+
+      --ambient-glow-a: rgba(37, 99, 235, 0.04);
+      --ambient-glow-b: rgba(124, 58, 237, 0.03);
+      --ambient-glow-c: rgba(37, 99, 235, 0.02);
+
+      --shadow-subtle: 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-normal: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-elevated: 0 8px 24px rgba(0,0,0,0.12);
+
+      --input-bg: rgba(0,0,0,0.03);
+      --input-bg-focus: rgba(0,0,0,0.05);
+    }
+
+    /* Explicit dark mode — .dark class on :root */
+    :root.dark {
+      --color-bg: #0f1119;
+      --color-surface: #1a1d28;
+      --color-text: #f0f1f5;
+      --color-text-secondary: #a0a4b8;
+      --color-text-tertiary: #6b6f85;
+      --color-accent-a: #3b82f6;
+      --color-accent-b: #8b5cf6;
+      --color-success: #34d399;
+      --color-warning: #fbbf24;
+      --color-error: #f87171;
+      --color-border: #2a2d3a;
+      --color-border-light: rgba(255,255,255,0.06);
+
+      --glass-bg: rgba(26, 29, 40, 0.65);
+      --glass-bg-hover: rgba(26, 29, 40, 0.85);
+      --glass-bg-light: rgba(26, 29, 40, 0.4);
+      --glass-border: rgba(255,255,255,0.06);
+      --glass-highlight: rgba(255,255,255,0.04);
+      --glass-blur: 20px;
+
+      --glow-blue: 0 0 40px rgba(59, 130, 246, 0.15), 0 0 80px rgba(59, 130, 246, 0.06);
+      --glow-violet: 0 0 40px rgba(139, 92, 246, 0.15), 0 0 80px rgba(139, 92, 246, 0.06);
+      --glow-mixed: 0 0 60px rgba(59, 130, 246, 0.12), 0 0 120px rgba(139, 92, 246, 0.08);
+      --glow-upload: 0 0 80px rgba(59, 130, 246, 0.12), 0 0 160px rgba(139, 92, 246, 0.06);
+
+      --ambient-glow-a: rgba(59, 130, 246, 0.07);
+      --ambient-glow-b: rgba(139, 92, 246, 0.06);
+      --ambient-glow-c: rgba(59, 130, 246, 0.04);
+
+      --shadow-subtle: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-normal: 0 4px 12px rgba(0,0,0,0.4);
+      --shadow-elevated: 0 8px 24px rgba(0,0,0,0.5);
+
+      --input-bg: rgba(255,255,255,0.04);
+      --input-bg-focus: rgba(255,255,255,0.06);
+    }
+
+    /* ================================================================
+       RESET & BASE
+       ================================================================ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      font-size: 0.875rem;
+      font-weight: 400;
+      line-height: 1.6;
+      color: var(--color-text);
+      background-color: var(--color-bg);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ================================================================
+       AMBIENT GLOW ORBS — Large blurred light spots
+       ================================================================ */
+    .ambient-glow {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+      will-change: transform;
+    }
+
+    .ambient-glow--a {
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, var(--ambient-glow-a) 0%, transparent 70%);
+      top: -250px;
+      right: -180px;
+      filter: blur(80px);
+      animation: ambientFloatA 14s ease-in-out infinite alternate;
+    }
+
+    .ambient-glow--b {
+      width: 550px;
+      height: 550px;
+      background: radial-gradient(circle, var(--ambient-glow-b) 0%, transparent 70%);
+      bottom: -200px;
+      left: -150px;
+      filter: blur(80px);
+      animation: ambientFloatB 16s ease-in-out infinite alternate;
+    }
+
+    .ambient-glow--c {
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, var(--ambient-glow-c) 0%, transparent 70%);
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      filter: blur(100px);
+      animation: ambientFloatC 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes ambientFloatA {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-60px, 50px) scale(1.12); }
+    }
+
+    @keyframes ambientFloatB {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(60px, -40px) scale(1.1); }
+    }
+
+    @keyframes ambientFloatC {
+      0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.6; }
+      100% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+    }
+
+    /* ================================================================
+       GLASS PANEL MIXIN
+       ================================================================ */
+    .glass-panel {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-top: 1px solid var(--glass-highlight);
+      border-radius: var(--radius-normal);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    .glass-panel--light {
+      background: var(--glass-bg-light);
+    }
+
+    .glass-panel--hover:hover {
+      background: var(--glass-bg-hover);
+      border-color: rgba(128,128,128,0.15);
+    }
+
+    /* ================================================================
+       LAYOUT
+       ================================================================ */
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 var(--space-xl);
+    }
+
+    /* ================================================================
+       HEADER — 48px compact
+       ================================================================ */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .header__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+    }
+
+    .header__brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .header__logo {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-subtle);
+      background: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+    }
+
+    .header__logo svg {
+      width: 15px;
+      height: 15px;
+      color: #fff;
+    }
+
+    .header__title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+
+    .header__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    /* ================================================================
+       THEME TOGGLE
+       ================================================================ */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-subtle);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg-light);
+      cursor: pointer;
+      color: var(--color-text-secondary);
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .theme-toggle:hover {
+      color: var(--color-text);
+      border-color: var(--color-accent-a);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+    }
+
+    .theme-toggle:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .theme-toggle svg {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.3s ease;
+    }
+
+    .theme-toggle .icon-sun,
+    .theme-toggle .icon-moon {
+      position: absolute;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    /* Dark mode: show sun (switch to light) */
+    :root.dark .theme-toggle .icon-sun { opacity: 1; transform: scale(1) rotate(0deg); }
+    :root.dark .theme-toggle .icon-moon { opacity: 0; transform: scale(0.5) rotate(90deg); }
+    /* Light mode: show moon (switch to dark) */
+    :root:not(.dark) .theme-toggle .icon-sun { opacity: 0; transform: scale(0.5) rotate(-90deg); }
+    :root:not(.dark) .theme-toggle .icon-moon { opacity: 1; transform: scale(1) rotate(0deg); }
+
+    /* ================================================================
+       MAIN CONTENT
+       ================================================================ */
+    .main {
+      flex: 1;
+      padding: var(--space-lg) 0 var(--space-2xl);
+    }
+
+    /* ================================================================
+       UPLOAD ZONE — Larger, more prominent (min 320px desktop)
+       ================================================================ */
+    .upload-section {
+      margin-bottom: var(--space-md);
+    }
+
+    .upload-zone {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 320px;
+      padding: var(--space-3xl) var(--space-xl);
+      border: 2px dashed var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg-light);
+      cursor: pointer;
+      transition: all 0.35s ease;
+      text-align: center;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Glow overlay on hover */
+    .upload-zone::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(ellipse at center, rgba(59,130,246,0.08) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.45s ease;
+      z-index: 0;
+    }
+
+    .upload-zone:hover {
+      border-color: rgba(59, 130, 246, 0.5);
+      background: var(--glass-bg);
+      box-shadow: var(--glow-upload), 0 0 0 4px rgba(59, 130, 246, 0.06);
+    }
+
+    .upload-zone:hover::before {
+      opacity: 1;
+    }
+
+    .upload-zone:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .upload-zone--drag-over {
+      border-color: var(--color-accent-a) !important;
+      background: rgba(59, 130, 246, 0.06) !important;
+      box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.08), var(--glow-blue) !important;
+    }
+
+    .upload-zone--drag-over::before {
+      opacity: 1;
+      background: radial-gradient(ellipse at center, rgba(59,130,246,0.12) 0%, transparent 60%);
+    }
+
+    .upload-zone__icon-ring {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-lg);
+      transition: all 0.35s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone:hover .upload-zone__icon-ring {
+      background: rgba(59, 130, 246, 0.14);
+      border-color: rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
+      transform: scale(1.06);
+    }
+
+    .upload-zone__icon-ring svg {
+      width: 30px;
+      height: 30px;
+      color: var(--color-accent-a);
+    }
+
+    .upload-zone__title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--color-text);
+      margin-bottom: var(--space-xs);
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone__desc {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone__hint {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-lg);
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      position: relative;
+      z-index: 1;
+    }
+
+    .upload-zone__hint-divider {
+      width: 1px;
+      height: 10px;
+      background: var(--color-border);
+    }
+
+    /* ================================================================
+       PRESET CHIPS — Below upload zone
+       ================================================================ */
+    .presets-section {
+      margin-bottom: var(--space-md);
+    }
+
+    .presets-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .presets-label__dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+    }
+
+    .presets-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+
+    .preset-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: var(--font-body);
+      position: relative;
+    }
+
+    .preset-chip:hover {
+      color: var(--color-text);
+      border-color: rgba(59, 130, 246, 0.3);
+      background: var(--glass-bg);
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.08);
+    }
+
+    .preset-chip:active {
+      transform: scale(0.97);
+    }
+
+    .preset-chip:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .preset-chip--active {
+      color: var(--color-accent-a) !important;
+      background: rgba(59, 130, 246, 0.15) !important;
+      border-color: var(--color-accent-a) !important;
+      border-width: 2px !important;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.18), inset 0 0 0 1px rgba(59,130,246,0.1) !important;
+      font-weight: 600;
+    }
+
+    .preset-chip__indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .preset-chip--active .preset-chip__indicator {
+      opacity: 1;
+    }
+
+    /* Custom preset styling */
+    .preset-chip--custom {
+      border-style: solid;
+    }
+
+    .preset-chip--custom::after {
+      content: '⭐';
+      font-size: 0.625rem;
+      margin-left: 2px;
+    }
+
+    .preset-chip .preset-chip__delete {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: var(--color-error);
+      font-size: 9px;
+      line-height: 1;
+      cursor: pointer;
+      margin-left: 2px;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .preset-chip--custom:hover .preset-chip__delete {
+      display: inline-flex;
+    }
+
+    .preset-chip__delete:hover {
+      background: rgba(248, 113, 113, 0.3);
+    }
+
+    /* ================================================================
+       SAVE PRESET BUTTON
+       ================================================================ */
+    .save-preset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      background: transparent;
+      border: 1px dashed var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+      white-space: nowrap;
+    }
+
+    .save-preset-btn:hover {
+      color: var(--color-accent-a);
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(59, 130, 246, 0.06);
+    }
+
+    .save-preset-btn:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .save-preset-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Inline preset name input */
+    .preset-name-input-row {
+      display: none;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-sm);
+      animation: fadeSlideIn 0.25s ease;
+    }
+
+    .preset-name-input-row--open {
+      display: flex;
+    }
+
+    .preset-name-input {
+      flex: 1;
+      max-width: 220px;
+      padding: 6px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-family: var(--font-body);
+      color: var(--color-text);
+      background: var(--input-bg);
+      border: 1px solid var(--color-border);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .preset-name-input:focus {
+      border-color: var(--color-accent-a);
+    }
+
+    .preset-name-input::placeholder {
+      color: var(--color-text-tertiary);
+    }
+
+    .preset-name-confirm {
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-body);
+      color: #fff;
+      background: var(--color-accent-a);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-name-confirm:hover {
+      background: var(--color-accent-b);
+    }
+
+    .preset-name-cancel {
+      padding: 6px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-family: var(--font-body);
+      color: var(--color-text-secondary);
+      background: transparent;
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .preset-name-cancel:hover {
+      border-color: var(--color-text-tertiary);
+    }
+
+    /* ================================================================
+       FILE LIST
+       ================================================================ */
+    .filelist-section {
+      margin-bottom: var(--space-md);
+      animation: fadeSlideIn 0.35s ease;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .filelist-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-md);
+    }
+
+    .filelist-header__left {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .filelist-header__count {
+      color: var(--color-accent-a);
+      font-weight: 700;
+    }
+
+    .filelist-header__clear {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+    }
+
+    .filelist-header__clear:hover {
+      color: var(--color-error);
+      border-color: rgba(248, 113, 113, 0.2);
+      background: rgba(248, 113, 113, 0.06);
+    }
+
+    .filelist-header__clear:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .filelist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: var(--space-sm);
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .filelist-grid::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .filelist-grid::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .filelist-grid::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 2px;
+    }
+
+    .file-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-subtle);
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      transition: all 0.2s;
+      animation: fadeSlideIn 0.3s ease;
+    }
+
+    .file-card:hover {
+      border-color: var(--color-border-light);
+      background: var(--glass-bg-hover);
+    }
+
+    .file-card__thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      background: var(--input-bg);
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-card__thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .file-card__thumb svg {
+      width: 18px;
+      height: 18px;
+      color: var(--color-text-tertiary);
+    }
+
+    .file-card__info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-card__name {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-card__size {
+      font-size: 0.625rem;
+      font-family: var(--font-mono);
+      color: var(--color-text-tertiary);
+    }
+
+    .file-card__remove {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: var(--color-error);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.2s;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .file-card:hover .file-card__remove {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .file-card__remove:hover {
+      background: rgba(248, 113, 113, 0.25);
+    }
+
+    .file-card__remove:focus-visible {
+      opacity: 1;
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 1px;
+    }
+
+    /* ================================================================
+       PROCESS BUTTON — with glow pulse
+       ================================================================ */
+    .process-section {
+      margin-bottom: var(--space-xl);
+      animation: fadeSlideIn 0.35s ease;
+    }
+
+    .process-btn {
+      width: 100%;
+      padding: 14px 24px;
+      border-radius: var(--radius-normal);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: var(--font-body);
+      color: #fff;
+      background: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      box-shadow: 0 4px 24px rgba(59, 130, 246, 0.25);
+      animation: btnGlowPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes btnGlowPulse {
+      0%, 100% { box-shadow: 0 4px 24px rgba(59, 130, 246, 0.25), 0 0 0 0 rgba(59, 130, 246, 0.2); }
+      50% { box-shadow: 0 4px 32px rgba(59, 130, 246, 0.35), 0 0 0 8px rgba(59, 130, 246, 0); }
+    }
+
+    .process-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .process-btn:hover {
+      box-shadow: 0 6px 36px rgba(59, 130, 246, 0.4), 0 0 0 4px rgba(59, 130, 246, 0.08);
+      transform: translateY(-1px);
+      animation: none;
+    }
+
+    .process-btn:hover::after {
+      opacity: 1;
+    }
+
+    .process-btn:active {
+      transform: scale(0.98) translateY(0);
+      box-shadow: 0 2px 12px rgba(59, 130, 246, 0.2);
+      animation: none;
+    }
+
+    .process-btn:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 3px;
+    }
+
+    .process-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+      animation: none;
+    }
+
+    .process-btn:disabled::after {
+      opacity: 0;
+    }
+
+    .process-btn__spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ================================================================
+       SETTINGS PANEL
+       ================================================================ */
+    .settings-panel {
+      padding: var(--space-xl);
+      margin-bottom: var(--space-xl);
+      animation: fadeSlideIn 0.4s ease;
+    }
+
+    .settings-panel__header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-xl);
+    }
+
+    .settings-panel__header svg {
+      width: 16px;
+      height: 16px;
+      color: var(--color-text-tertiary);
+    }
+
+    .settings-panel__header h3 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xl) var(--space-2xl);
+    }
+
+    .settings-group__label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .settings-group__label svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Format buttons */
+    .format-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+    }
+
+    .format-btn {
+      padding: 6px 12px;
+      border-radius: var(--radius-subtle);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-body);
+      white-space: nowrap;
+    }
+
+    .format-btn:hover {
+      color: var(--color-text);
+      border-color: var(--color-border-light);
+      background: var(--glass-bg);
+    }
+
+    .format-btn:active {
+      transform: scale(0.97);
+    }
+
+    .format-btn:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .format-btn--active {
+      color: var(--color-accent-a) !important;
+      background: rgba(59, 130, 246, 0.15) !important;
+      border-color: var(--color-accent-a) !important;
+      border-width: 2px !important;
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+    }
+
+    /* Quality slider */
+    .quality-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .quality-value {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-accent-a);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--color-border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      border: 2px solid var(--color-bg);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+    }
+
+    .slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-accent-a);
+      border: 2px solid var(--color-bg);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+    }
+
+    .slider:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 4px;
+    }
+
+    .quality-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.625rem;
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Dimension inputs */
+    .dimension-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .input-field {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: var(--radius-subtle);
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--color-text);
+      background: var(--input-bg);
+      border: 1px solid var(--color-border);
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    .input-field::placeholder {
+      color: var(--color-text-tertiary);
+    }
+
+    .input-field:hover {
+      border-color: var(--color-border-light);
+    }
+
+    .input-field:focus {
+      border-color: var(--color-accent-a);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .dimension-sep {
+      color: var(--color-text-tertiary);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    /* Fit select */
+    .select-field {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: var(--radius-subtle);
+      font-size: 0.75rem;
+      font-family: var(--font-body);
+      color: var(--color-text);
+      background: var(--input-bg);
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 28px;
+    }
+
+    .select-field:hover {
+      border-color: var(--color-border-light);
+    }
+
+    .select-field:focus {
+      border-color: var(--color-accent-a);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* ICO size chips */
+    .ico-sizes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xs);
+    }
+
+    .ico-size-chip {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .ico-size-chip:hover {
+      border-color: var(--color-border-light);
+    }
+
+    .ico-size-chip:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .ico-size-chip--active {
+      color: var(--color-accent-a) !important;
+      background: rgba(59, 130, 246, 0.15) !important;
+      border-color: var(--color-accent-a) !important;
+      border-width: 2px !important;
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.12);
+    }
+
+    /* Advanced toggle */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 0;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+      font-family: var(--font-body);
+      margin-top: var(--space-md);
+    }
+
+    .advanced-toggle:hover {
+      color: var(--color-text-secondary);
+    }
+
+    .advanced-toggle:focus-visible {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+      border-radius: var(--radius-sharp);
+    }
+
+    .advanced-toggle__chevron {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.2s;
+    }
+
+    .advanced-toggle--open .advanced-toggle__chevron {
+      transform: rotate(90deg);
+    }
+
+    .advanced-panel {
+      margin-top: var(--space-md);
+      padding: var(--space-lg);
+      border-radius: var(--radius-subtle);
+      background: var(--input-bg);
+      border: 1px solid var(--glass-border);
+      display: none;
+      animation: fadeSlideIn 0.25s ease;
+    }
+
+    .advanced-panel--open {
+      display: block;
+    }
+
+    .advanced-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-sm) 0;
+    }
+
+    .advanced-row + .advanced-row {
+      border-top: 1px solid var(--glass-border);
+    }
+
+    .advanced-row__label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .advanced-row__sub {
+      margin-top: var(--space-sm);
+      padding-top: 0;
+      border-top: none;
+    }
+
+    /* Toggle switch */
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-switch__slider {
+      position: absolute;
+      inset: 0;
+      background: var(--color-border);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-switch__slider::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 2px;
+      top: 2px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch input:checked + .toggle-switch__slider {
+      background: var(--color-accent-a);
+    }
+
+    .toggle-switch input:checked + .toggle-switch__slider::after {
+      transform: translateX(16px);
+    }
+
+    .toggle-switch input:focus-visible + .toggle-switch__slider {
+      outline: 2px solid var(--color-accent-a);
+      outline-offset: 2px;
+    }
+
+    .advanced-slider {
+      margin-top: var(--space-sm);
+      padding-left: 0;
+    }
+
+    /* ================================================================
+       RESULTS
+       ================================================================ */
+    .results-section {
+      animation: fadeSlideIn 0.4s ease;
+    }
+
+    .results-section__header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .results-section__header svg {
+      width: 14px;
+      height: 14px;
+      color: var(--color-success);
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+    }
+
+    .stat-card {
+      padding: var(--space-lg);
+      border-radius: var(--radius-normal);
+      text-align: center;
+      animation: fadeSlideIn 0.35s ease;
+    }
+
+    .stat-card__label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--color-text-tertiary);
+      margin-bottom: var(--space-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .stat-card__value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-text);
+      font-family: var(--font-mono);
+    }
+
+    .stat-card__value--success {
+      color: var(--color-success);
+    }
+
+    .stat-card__sub {
+      font-size: 0.6875rem;
+      color: var(--color-success);
+      margin-top: 2px;
+    }
+
+    .result-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .result-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .result-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .result-list::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 2px;
+    }
+
+    .result-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md) var(--space-lg);
+      border-radius: var(--radius-normal);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      animation: fadeSlideIn 0.3s ease;
+      transition: border-color 0.2s;
+    }
+
+    .result-item:hover {
+      border-color: var(--color-border-light);
+    }
+
+    .result-item--success {
+      border-left: 3px solid var(--color-success);
+    }
+
+    .result-item--error {
+      border-left: 3px solid var(--color-error);
+      background: rgba(248, 113, 113, 0.04);
+    }
+
+    .result-item__icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .result-item__icon--success {
+      color: var(--color-success);
+    }
+
+    .result-item__icon--error {
+      color: var(--color-error);
+    }
+
+    .result-item__info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .result-item__name {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-item__meta {
+      font-size: 0.6875rem;
+      font-family: var(--font-mono);
+      color: var(--color-text-tertiary);
+    }
+
+    .result-item__meta .savings {
+      color: var(--color-success);
+      font-weight: 500;
+    }
+
+    .result-item__meta .dimensions {
+      color: var(--color-text-secondary);
+      margin-left: var(--space-sm);
+    }
+
+    .result-item__badge {
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--color-text-secondary);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+      flex-shrink: 0;
+    }
+
+    /* ================================================================
+       ERROR ALERT
+       ================================================================ */
+    .error-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-md);
+      padding: var(--space-lg);
+      border-radius: var(--radius-normal);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      background: rgba(248, 113, 113, 0.06);
+      border-left: 3px solid var(--color-error);
+      animation: fadeSlideIn 0.3s ease;
+      margin-bottom: var(--space-xl);
+    }
+
+    .error-alert__icon {
+      width: 18px;
+      height: 18px;
+      color: var(--color-error);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .error-alert__title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--color-error);
+      margin-bottom: 2px;
+    }
+
+    .error-alert__desc {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* ================================================================
+       DOWNLOAD NOTIFICATION
+       ================================================================ */
+    .download-notif {
+      margin-bottom: var(--space-lg);
+      animation: fadeSlideIn 0.3s ease;
+      padding: var(--space-md) var(--space-lg);
+    }
+
+    .download-notif__inner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--color-success);
+    }
+
+    .download-notif__icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .download-notif__retry {
+      margin-left: auto;
+      padding: 5px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-body);
+      color: #fff;
+      background: var(--color-accent-a);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .download-notif__retry:hover {
+      background: var(--color-accent-b);
+      box-shadow: var(--glow-blue);
+    }
+
+    .download-notif__dismiss {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      background: transparent;
+      border: 1px solid var(--glass-border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .download-notif__dismiss:hover {
+      color: var(--color-text);
+      border-color: var(--color-border);
+    }
+
+    /* ================================================================
+       TECH FOOTER
+       ================================================================ */
+    .tech-footer {
+      margin-top: var(--space-2xl);
+      padding: var(--space-lg);
+      border-radius: var(--radius-normal);
+      background: var(--glass-bg-light);
+      border: 1px solid var(--glass-border);
+    }
+
+    .tech-footer__title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-xs);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .tech-footer__items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-lg);
+      font-size: 0.6875rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .tech-footer__items strong {
+      color: var(--color-text-secondary);
+      font-weight: 600;
+    }
+
+    /* ================================================================
+       FOOTER
+       ================================================================ */
+    .footer {
+      border-top: 1px solid var(--glass-border);
+      padding: var(--space-xl) 0;
+      text-align: center;
+      font-size: 0.6875rem;
+      color: var(--color-text-tertiary);
+    }
+
+    /* ================================================================
+       RESPONSIVE
+       ================================================================ */
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 var(--space-lg);
+      }
+
+      .upload-zone {
+        min-height: 260px;
+        padding: var(--space-2xl) var(--space-lg);
+      }
+
+      .upload-zone__icon-ring {
+        width: 56px;
+        height: 56px;
+      }
+
+      .upload-zone__icon-ring svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .upload-zone__title {
+        font-size: 1.0625rem;
+      }
+
+      .settings-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+      }
+
+      .stats-row {
+        grid-template-columns: 1fr;
+        gap: var(--space-sm);
+      }
+
+      .presets-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: var(--space-xs);
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .presets-row::-webkit-scrollbar {
+        height: 0;
+      }
+
+      .filelist-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      }
+
+      .result-item {
+        flex-wrap: wrap;
+      }
+
+      .result-item__badge {
+        margin-left: auto;
+      }
+
+      .tech-footer__items {
+        flex-direction: column;
+        gap: var(--space-xs);
+      }
+
+      .ambient-glow--a {
+        width: 400px;
+        height: 400px;
+        top: -120px;
+        right: -80px;
+      }
+
+      .ambient-glow--b {
+        width: 350px;
+        height: 350px;
+        bottom: -100px;
+        left: -80px;
+      }
+
+      .ambient-glow--c {
+        width: 250px;
+        height: 250px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .upload-zone {
+        min-height: 220px;
+        padding: var(--space-xl) var(--space-md);
+      }
+
+      .upload-zone__desc {
+        font-size: 0.75rem;
+      }
+
+      .format-grid {
+        gap: 4px;
+      }
+
+      .format-btn {
+        padding: 5px 8px;
+        font-size: 0.6875rem;
+      }
+    }
+
+    /* ================================================================
+       REDUCED MOTION
+       ================================================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .ambient-glow {
+        display: none;
+      }
+
+      .process-btn__spinner {
+        animation: none;
+        opacity: 0.5;
+      }
+
+      .process-btn {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient glow orbs — large blurred light spots -->
+  <div class="ambient-glow ambient-glow--a" aria-hidden="true"></div>
+  <div class="ambient-glow ambient-glow--b" aria-hidden="true"></div>
+  <div class="ambient-glow ambient-glow--c" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <!-- ================================================================
+         HEADER — 48px compact
+         ================================================================ -->
+    <header class="header">
+      <div class="container header__inner">
+        <div class="header__brand">
+          <div class="header__logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+          <span class="header__title">图片压缩工坊</span>
+        </div>
+        <div class="header__actions">
+          <!-- Theme toggle -->
+          <button class="theme-toggle" id="themeToggle" aria-label="切换亮色/暗色模式" title="切换亮色/暗色模式">
+            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================================================================
+         MAIN
+         ================================================================ -->
+    <main class="main">
+      <div class="container">
+
+        <!-- Upload Zone — larger, moved up -->
+        <section class="upload-section">
+          <div
+            class="upload-zone"
+            id="uploadZone"
+            role="button"
+            tabindex="0"
+            aria-label="拖拽图片到此处上传，或点击选择文件"
+          >
+            <div class="upload-zone__icon-ring">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="upload-zone__title">拖拽图片到此处，或点击上传</p>
+            <p class="upload-zone__desc">支持 JPG、PNG、WebP、BMP、TIFF、GIF — 批量处理，本地完成</p>
+            <div class="upload-zone__hint">
+              <span>单文件 ≤ 50MB</span>
+              <span class="upload-zone__hint-divider"></span>
+              <span>最多 50 张</span>
+              <span class="upload-zone__hint-divider"></span>
+              <span>隐私安全</span>
+            </div>
+          </div>
+          <input
+            type="file"
+            id="fileInput"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,image/gif"
+            style="display:none"
+          >
+        </section>
+
+        <!-- Preset Chips — moved below upload zone -->
+        <section class="presets-section">
+          <div class="presets-label">
+            <span class="presets-label__dot"></span>
+            快捷预设
+          </div>
+          <div class="presets-row" id="presetsRow" role="group" aria-label="快捷预设模板">
+            <!-- System presets injected by JS -->
+            <!-- Custom presets injected by JS -->
+            <!-- Save preset button -->
+            <button class="save-preset-btn" id="savePresetBtn" onclick="showPresetNameInput()" title="保存当前设置为自定义预设">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              保存预设
+            </button>
+          </div>
+          <!-- Inline preset name input -->
+          <div class="preset-name-input-row" id="presetNameRow">
+            <input type="text" class="preset-name-input" id="presetNameInput" placeholder="输入预设名称…" maxlength="12">
+            <button class="preset-name-confirm" onclick="confirmSavePreset()">保存</button>
+            <button class="preset-name-cancel" onclick="hidePresetNameInput()">取消</button>
+          </div>
+        </section>
+
+        <!-- File List -->
+        <section class="filelist-section" id="fileListSection" style="display:none">
+          <div class="filelist-header">
+            <div class="filelist-header__left">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              已选择 <span class="filelist-header__count" id="fileCount">0</span> 张图片
+            </div>
+            <button class="filelist-header__clear" onclick="clearFiles()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              清空
+            </button>
+          </div>
+          <div class="filelist-grid" id="fileGrid"></div>
+        </section>
+
+        <!-- Process Button -->
+        <section class="process-section" id="processSection" style="display:none">
+          <button class="process-btn" id="processBtn" onclick="handleProcess()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4.5v4L12 15l-9-4.5v-4L12 2z"/><path d="M12 15l9-4.5v4L12 22l-9-4.5v-4L12 15z"/></svg>
+            <span id="processBtnText">开始处理 0 张图片</span>
+          </button>
+        </section>
+
+        <!-- Settings Panel -->
+        <section class="settings-panel glass-panel">
+          <div class="settings-panel__header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            <h3>处理设置</h3>
+          </div>
+
+          <div class="settings-grid">
+            <!-- Format -->
+            <div class="settings-group">
+              <div class="settings-group__label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="4"/><path d="M4 20l5.5-8 3.5 5 2.5-3.5L20 20"/></svg>
+                输出格式
+              </div>
+              <div class="format-grid" role="group" aria-label="输出格式选择">
+                <button class="format-btn format-btn--active" data-format="jpeg" onclick="selectFormat('jpeg', this)">JPEG</button>
+                <button class="format-btn" data-format="png" onclick="selectFormat('png', this)">PNG</button>
+                <button class="format-btn" data-format="webp" onclick="selectFormat('webp', this)">WebP</button>
+                <button class="format-btn" data-format="ico" onclick="selectFormat('ico', this)">ICO</button>
+                <button class="format-btn" data-format="original" onclick="selectFormat('original', this)">保持原格式</button>
+              </div>
+            </div>
+
+            <!-- Quality -->
+            <div class="settings-group" id="qualityGroup">
+              <div class="settings-group__label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                压缩质量
+              </div>
+              <div class="quality-row">
+                <input type="range" class="slider" id="qualitySlider" min="1" max="100" value="80" aria-label="压缩质量" oninput="updateQuality(this.value)">
+                <span class="quality-value" id="qualityValue">80%</span>
+              </div>
+              <div class="quality-labels">
+                <span>小文件</span><span>高质量</span>
+              </div>
+            </div>
+
+            <!-- Dimensions -->
+            <div class="settings-group" id="dimensionGroup">
+              <div class="settings-group__label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                目标尺寸（可选）
+              </div>
+              <div class="dimension-row">
+                <input type="number" class="input-field" id="widthInput" placeholder="宽度" min="1" max="10000" aria-label="目标宽度">
+                <span class="dimension-sep">×</span>
+                <input type="number" class="input-field" id="heightInput" placeholder="高度" min="1" max="10000" aria-label="目标高度">
+                <span class="dimension-sep">px</span>
+              </div>
+              <div style="margin-top: var(--space-sm);">
+                <select class="select-field" id="fitSelect" aria-label="裁切模式" onchange="updateFit(this.value)">
+                  <option value="inside">等比例缩放 — 不超出目标尺寸</option>
+                  <option value="cover">居中裁切 — 填满目标尺寸</option>
+                  <option value="fill">拉伸填充 — 可能变形</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ICO Sizes -->
+            <div class="settings-group" id="icoGroup" style="display:none">
+              <div class="settings-group__label">ICO 包含尺寸</div>
+              <div class="ico-sizes" id="icoSizeContainer" role="group" aria-label="ICO 尺寸选择"></div>
+            </div>
+          </div>
+
+          <!-- Advanced Toggle -->
+          <button class="advanced-toggle" id="advancedToggle" onclick="toggleAdvanced()" aria-expanded="false">
+            <svg class="advanced-toggle__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            高级选项
+          </button>
+
+          <div class="advanced-panel" id="advancedPanel">
+            <div id="pngAdvanced" style="display:none">
+              <div class="advanced-row">
+                <span class="advanced-row__label">无损压缩</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="pngLossless" onchange="updatePngLossless(this.checked)">
+                  <span class="toggle-switch__slider"></span>
+                </label>
+              </div>
+              <div id="pngLossyOptions">
+                <div class="advanced-row advanced-row__sub">
+                  <div style="width:100%">
+                    <div style="display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--color-text-tertiary);margin-bottom:4px;">
+                      <span>颜色数</span><span id="colorsValue" style="font-family:var(--font-mono);color:var(--color-accent-a);">256</span>
+                    </div>
+                    <input type="range" class="slider" id="colorsSlider" min="2" max="256" value="256" oninput="updateColors(this.value)">
+                  </div>
+                </div>
+                <div class="advanced-row advanced-row__sub">
+                  <div style="width:100%">
+                    <div style="display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--color-text-tertiary);margin-bottom:4px;">
+                      <span>抖动</span><span id="ditherValue" style="font-family:var(--font-mono);color:var(--color-accent-a);">1.0</span>
+                    </div>
+                    <input type="range" class="slider" id="ditherSlider" min="0" max="1" step="0.1" value="1" oninput="updateDither(this.value)">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="webpAdvanced" style="display:none">
+              <div class="advanced-row">
+                <span class="advanced-row__label">无损压缩</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="webpLossless" onchange="updateWebpLossless(this.checked)">
+                  <span class="toggle-switch__slider"></span>
+                </label>
+              </div>
+              <div id="webpLossyOptions">
+                <div class="advanced-row advanced-row__sub">
+                  <div style="width:100%">
+                    <div style="display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--color-text-tertiary);margin-bottom:4px;">
+                      <span>压缩努力度</span><span id="effortValue" style="font-family:var(--font-mono);color:var(--color-accent-a);">4/6</span>
+                    </div>
+                    <input type="range" class="slider" id="effortSlider" min="0" max="6" value="4" oninput="updateEffort(this.value)">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="jpegAdvanced">
+              <div class="advanced-row">
+                <span class="advanced-row__label">渐进式 JPEG</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="jpegProgressive" checked onchange="updateJpegProgressive(this.checked)">
+                  <span class="toggle-switch__slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="advanced-row">
+              <span class="advanced-row__label">移除元数据 (EXIF)</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="stripMetadata" checked onchange="updateStripMetadata(this.checked)">
+                <span class="toggle-switch__slider"></span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Error Alert -->
+        <div class="error-alert" id="errorAlert" style="display:none">
+          <svg class="error-alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <div>
+            <div class="error-alert__title">处理出错</div>
+            <div class="error-alert__desc" id="errorDesc"></div>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <section class="results-section" id="resultsSection" style="display:none">
+          <div class="results-section__header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            处理结果
+          </div>
+
+          <!-- Download notification -->
+          <div class="download-notif glass-panel" id="downloadNotif" style="display:none">
+            <div class="download-notif__inner">
+              <svg class="download-notif__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>处理完成，ZIP 包已自动下载</span>
+              <button class="download-notif__retry" onclick="manualDownload()">重新下载</button>
+              <button class="download-notif__dismiss" onclick="dismissDownloadNotif()" aria-label="关闭">✕</button>
+            </div>
+          </div>
+
+          <div class="stats-row" id="statsRow"></div>
+          <div class="result-list" id="resultList"></div>
+        </section>
+
+        <!-- Tech Footer -->
+        <div class="tech-footer">
+          <div class="tech-footer__title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            技术栈
+          </div>
+          <div class="tech-footer__items">
+            <span>基于 <strong>Sharp / libvips</strong>，比 ImageMagick 快 4–5 倍</span>
+            <span>JPEG 使用 <strong>MozJPEG</strong> 编码器，压缩率更高</span>
+            <span>流式处理，内存占用低，支持大批量</span>
+            <span>输出格式：<strong id="techFormat">JPEG</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        图片压缩工坊 · 基于 Sharp + React · 所有处理在浏览器端完成，保障隐私和处理速度
+      </div>
+    </footer>
+  </div>
+
+  <!-- ================================================================
+       INTERACTIVITY SCRIPT
+       ================================================================ -->
+  <script>
+    // ================================================================
+    // THEME LOGIC
+    // ================================================================
+    (function initTheme() {
+      const stored = localStorage.getItem('img-compressor-theme');
+      if (stored === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else if (stored === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        // No stored preference — follow system
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    })();
+
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('img-compressor-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('img-compressor-theme', 'dark');
+      }
+    });
+
+    // Listen for system preference changes (only relevant if no stored preference)
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      if (!localStorage.getItem('img-compressor-theme')) {
+        if (e.matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    });
+
+    // ================================================================
+    // CUSTOM PRESETS — localStorage
+    // ================================================================
+    const CUSTOM_PRESETS_KEY = 'img-compressor-custom-presets';
+    const MAX_CUSTOM_PRESETS = 10;
+
+    function loadCustomPresets() {
+      try {
+        const raw = localStorage.getItem(CUSTOM_PRESETS_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    }
+
+    function saveCustomPresets(presets) {
+      localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(presets));
+    }
+
+    // ================================================================
+    // STATE
+    // ================================================================
+    const SYSTEM_PRESETS = {
+      'web-photo':    { name: '网页照片优化', format: 'jpeg', quality: 85, width: 1920, height: null, fit: 'inside', progressive: true, stripMetadata: true },
+      'web-thumb':    { name: '缩略图生成',   format: 'jpeg', quality: 75, width: 400,  height: 300, fit: 'cover', progressive: true, stripMetadata: true },
+      'png-lossless': { name: 'PNG 无损压缩', format: 'png',  quality: 100, width: null, height: null, lossless: true, colors: 256, stripMetadata: true },
+      'png-quant':    { name: 'PNG 有损量化', format: 'png',  quality: 80,  width: null, height: null, lossless: false, colors: 128, dither: 0.8, stripMetadata: true },
+      'webp-best':    { name: 'WebP 最佳压缩',format: 'webp', quality: 80,  width: null, height: null, effort: 6, stripMetadata: true },
+      'ico-favicon':  { name: 'Favicon 图标', format: 'ico',  quality: 100, width: 256,  height: 256, fit: 'cover', icoSizes: [16, 32, 48, 64, 128, 256] },
+      'social-media': { name: '社交媒体封面', format: 'jpeg', quality: 90,  width: 1200, height: 630, fit: 'cover', progressive: true, stripMetadata: true },
+      'max-compress': { name: '极限压缩',     format: 'jpeg', quality: 60,  width: 1280, height: null, fit: 'inside', progressive: false, stripMetadata: true }
+    };
+
+    const state = {
+      files: [],
+      options: {
+        format: 'jpeg',
+        quality: 80,
+        width: null,
+        height: null,
+        fit: 'inside',
+        lossless: false,
+        effort: 4,
+        colors: 256,
+        dither: 1.0,
+        progressive: true,
+        stripMetadata: true,
+        icoSizes: [16, 32, 48, 64, 128, 256]
+      },
+      activePreset: null,
+      processing: false,
+      results: null,
+      error: null
+    };
+
+    // ================================================================
+    // DOM refs
+    // ================================================================
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    const uploadZone = $('#uploadZone');
+    const fileInput = $('#fileInput');
+    const fileListSection = $('#fileListSection');
+    const fileGrid = $('#fileGrid');
+    const fileCount = $('#fileCount');
+    const processSection = $('#processSection');
+    const processBtn = $('#processBtn');
+    const processBtnText = $('#processBtnText');
+    const errorAlert = $('#errorAlert');
+    const errorDesc = $('#errorDesc');
+    const resultsSection = $('#resultsSection');
+    const statsRow = $('#statsRow');
+    const resultListEl = $('#resultList');
+    const techFormat = $('#techFormat');
+    const presetsRow = $('#presetsRow');
+
+    // ================================================================
+    // UPLOAD ZONE EVENTS
+    // ================================================================
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('upload-zone--drag-over');
+    });
+    uploadZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('upload-zone--drag-over');
+    });
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('upload-zone--drag-over');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      handleFiles(e.target.files);
+      fileInput.value = '';
+    });
+
+    // ================================================================
+    // FILE HANDLING
+    // ================================================================
+    function handleFiles(fileList) {
+      const validExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'gif'];
+      const newFiles = Array.from(fileList).filter(f => {
+        const ext = f.name.split('.').pop()?.toLowerCase();
+        return validExts.includes(ext);
+      });
+
+      const existingKeys = new Set(state.files.map(f => f.name + f.size));
+      const unique = newFiles.filter(f => !existingKeys.has(f.name + f.size));
+
+      if (unique.length > 0) {
+        state.files = [...state.files, ...unique];
+        state.results = null;
+        state.error = null;
+        renderAll();
+      }
+    }
+
+    function removeFile(index) {
+      state.files.splice(index, 1);
+      state.results = null;
+      renderAll();
+    }
+
+    function clearFiles() {
+      state.files = [];
+      state.results = null;
+      state.error = null;
+      renderAll();
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    // ================================================================
+    // PRESETS
+    // ================================================================
+    function getAllPresets() {
+      const customPresets = loadCustomPresets();
+      const all = [];
+
+      // System presets
+      Object.entries(SYSTEM_PRESETS).forEach(([id, preset]) => {
+        all.push({ id, ...preset, isCustom: false });
+      });
+
+      // Custom presets
+      customPresets.forEach(p => {
+        all.push({ ...p, isCustom: true });
+      });
+
+      return all;
+    }
+
+    function renderPresets() {
+      const allPresets = getAllPresets();
+
+      // Clear existing preset chips (keep the save button)
+      const existingChips = presetsRow.querySelectorAll('.preset-chip');
+      existingChips.forEach(c => c.remove());
+
+      // Build chips HTML
+      const chipsHtml = allPresets.map(p => {
+        const isActive = p.isCustom
+          ? (state.activePreset === p.id)
+          : (state.activePreset === p.id);
+        const activeClass = isActive ? 'preset-chip--active' : '';
+        const customClass = p.isCustom ? 'preset-chip--custom' : '';
+
+        return `<button
+          class="preset-chip ${activeClass} ${customClass}"
+          data-preset="${p.id}"
+          onclick="applyPresetById('${p.id}', this)"
+          aria-pressed="${isActive ? 'true' : 'false'}"
+        >
+          <span class="preset-chip__indicator"></span>${p.name || p.id}
+          ${p.isCustom ? `<span class="preset-chip__delete" onclick="event.stopPropagation();deleteCustomPreset('${p.id}')" title="删除此预设">✕</span>` : ''}
+        </button>`;
+      }).join('');
+
+      // Insert before the save button
+      const saveBtn = $('#savePresetBtn');
+      saveBtn.insertAdjacentHTML('beforebegin', chipsHtml);
+    }
+
+    function applyPresetById(presetId, btn) {
+      const allPresets = getAllPresets();
+      const preset = allPresets.find(p => p.id === presetId);
+      if (!preset) return;
+
+      // Apply options
+      const optKeys = ['format', 'quality', 'width', 'height', 'fit', 'lossless', 'effort', 'colors', 'dither', 'progressive', 'stripMetadata', 'icoSizes'];
+      optKeys.forEach(k => {
+        if (preset[k] !== undefined) {
+          state.options[k] = preset[k];
+        }
+      });
+      state.activePreset = presetId;
+
+      // Update UI
+      $$('.preset-chip').forEach(c => {
+        c.classList.remove('preset-chip--active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      if (btn) {
+        btn.classList.add('preset-chip--active');
+        btn.setAttribute('aria-pressed', 'true');
+      }
+
+      syncUIFromOptions();
+    }
+
+    function deleteCustomPreset(presetId) {
+      let customPresets = loadCustomPresets();
+      customPresets = customPresets.filter(p => p.id !== presetId);
+      saveCustomPresets(customPresets);
+
+      if (state.activePreset === presetId) {
+        state.activePreset = null;
+        $$('.preset-chip').forEach(c => {
+          c.classList.remove('preset-chip--active');
+          c.setAttribute('aria-pressed', 'false');
+        });
+      }
+
+      renderPresets();
+    }
+
+    // ================================================================
+    // SAVE CUSTOM PRESET
+    // ================================================================
+    function showPresetNameInput() {
+      const customPresets = loadCustomPresets();
+      if (customPresets.length >= MAX_CUSTOM_PRESETS) {
+        showError(`最多保存 ${MAX_CUSTOM_PRESETS} 个自定义预设，请先删除旧的`);
+        return;
+      }
+      $('#presetNameRow').classList.add('preset-name-input-row--open');
+      $('#presetNameInput').value = '';
+      setTimeout(() => $('#presetNameInput').focus(), 100);
+    }
+
+    function hidePresetNameInput() {
+      $('#presetNameRow').classList.remove('preset-name-input-row--open');
+    }
+
+    function confirmSavePreset() {
+      const name = $('#presetNameInput').value.trim();
+      if (!name) {
+        showError('请输入预设名称');
+        return;
+      }
+
+      const customPresets = loadCustomPresets();
+      if (customPresets.length >= MAX_CUSTOM_PRESETS) {
+        showError(`最多保存 ${MAX_CUSTOM_PRESETS} 个自定义预设`);
+        return;
+      }
+
+      const newPreset = {
+        id: 'custom-' + Date.now(),
+        name: name,
+        ...state.options
+      };
+
+      customPresets.push(newPreset);
+      saveCustomPresets(customPresets);
+
+      state.activePreset = newPreset.id;
+      hidePresetNameInput();
+      renderPresets();
+
+      // Highlight the new preset
+      setTimeout(() => {
+        const chip = document.querySelector(`[data-preset="${newPreset.id}"]`);
+        if (chip) {
+          $$('.preset-chip').forEach(c => {
+            c.classList.remove('preset-chip--active');
+            c.setAttribute('aria-pressed', 'false');
+          });
+          chip.classList.add('preset-chip--active');
+          chip.setAttribute('aria-pressed', 'true');
+        }
+      }, 50);
+    }
+
+    // ================================================================
+    // FORMAT
+    // ================================================================
+    function selectFormat(format, btn) {
+      state.options.format = format;
+      state.activePreset = null;
+      $$('.preset-chip').forEach(c => {
+        c.classList.remove('preset-chip--active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      $$('.format-btn').forEach(b => b.classList.remove('format-btn--active'));
+      btn.classList.add('format-btn--active');
+      syncUIFromOptions();
+      updateFormatSpecificUI();
+    }
+
+    // ================================================================
+    // QUALITY
+    // ================================================================
+    function updateQuality(val) {
+      state.options.quality = parseInt(val);
+      state.activePreset = null;
+      $$('.preset-chip').forEach(c => {
+        c.classList.remove('preset-chip--active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      $('#qualityValue').textContent = val + '%';
+    }
+
+    // ================================================================
+    // FIT
+    // ================================================================
+    function updateFit(val) {
+      state.options.fit = val;
+    }
+
+    // ================================================================
+    // ICO SIZES
+    // ================================================================
+    function toggleIcoSize(size) {
+      const idx = state.options.icoSizes.indexOf(size);
+      if (idx >= 0) {
+        state.options.icoSizes = state.options.icoSizes.filter(s => s !== size);
+      } else {
+        state.options.icoSizes = [...state.options.icoSizes, size].sort((a, b) => a - b);
+      }
+      renderIcoSizes();
+    }
+
+    function renderIcoSizes() {
+      const container = $('#icoSizeContainer');
+      const sizes = [16, 32, 48, 64, 128, 256];
+      container.innerHTML = sizes.map(s =>
+        `<button class="ico-size-chip ${state.options.icoSizes.includes(s) ? 'ico-size-chip--active' : ''}" onclick="toggleIcoSize(${s})">${s}×${s}</button>`
+      ).join('');
+    }
+
+    // ================================================================
+    // ADVANCED
+    // ================================================================
+    function toggleAdvanced() {
+      const panel = $('#advancedPanel');
+      const toggle = $('#advancedToggle');
+      const isOpen = panel.classList.contains('advanced-panel--open');
+      if (isOpen) {
+        panel.classList.remove('advanced-panel--open');
+        toggle.classList.remove('advanced-toggle--open');
+        toggle.setAttribute('aria-expanded', 'false');
+      } else {
+        panel.classList.add('advanced-panel--open');
+        toggle.classList.add('advanced-toggle--open');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    function updatePngLossless(val) { state.options.lossless = val; updateAdvancedVisibility(); }
+    function updateColors(val) { state.options.colors = parseInt(val); $('#colorsValue').textContent = val; }
+    function updateDither(val) { state.options.dither = parseFloat(val); $('#ditherValue').textContent = val; }
+    function updateWebpLossless(val) { state.options.lossless = val; updateAdvancedVisibility(); }
+    function updateEffort(val) { state.options.effort = parseInt(val); $('#effortValue').textContent = val + '/6'; }
+    function updateJpegProgressive(val) { state.options.progressive = val; }
+    function updateStripMetadata(val) { state.options.stripMetadata = val; }
+
+    function updateAdvancedVisibility() {
+      const fmt = state.options.format;
+      $('#pngAdvanced').style.display = (fmt === 'png') ? '' : 'none';
+      $('#webpAdvanced').style.display = (fmt === 'webp') ? '' : 'none';
+      $('#jpegAdvanced').style.display = (fmt === 'jpeg') ? '' : 'none';
+
+      if (fmt === 'png') {
+        $('#pngLossyOptions').style.display = state.options.lossless ? 'none' : '';
+      }
+      if (fmt === 'webp') {
+        $('#webpLossyOptions').style.display = state.options.lossless ? 'none' : '';
+      }
+    }
+
+    function updateFormatSpecificUI() {
+      const fmt = state.options.format;
+      $('#qualityGroup').style.display = (fmt === 'ico' || fmt === 'original') ? 'none' : '';
+      $('#dimensionGroup').style.display = (fmt === 'ico') ? 'none' : '';
+      $('#icoGroup').style.display = (fmt === 'ico') ? '' : 'none';
+      const labels = { jpeg: 'JPEG', png: 'PNG', webp: 'WebP', ico: 'ICO', original: '原始格式' };
+      techFormat.textContent = labels[fmt] || fmt.toUpperCase();
+      updateAdvancedVisibility();
+      if (fmt === 'ico') renderIcoSizes();
+    }
+
+    // ================================================================
+    // SYNC UI FROM OPTIONS
+    // ================================================================
+    function syncUIFromOptions() {
+      const o = state.options;
+      $('#qualitySlider').value = o.quality;
+      $('#qualityValue').textContent = o.quality + '%';
+      $('#widthInput').value = o.width || '';
+      $('#heightInput').value = o.height || '';
+      $('#fitSelect').value = o.fit;
+      $('#pngLossless').checked = o.lossless;
+      $('#webpLossless').checked = o.lossless;
+      $('#jpegProgressive').checked = o.progressive;
+      $('#stripMetadata').checked = o.stripMetadata;
+      $('#colorsSlider').value = o.colors;
+      $('#colorsValue').textContent = o.colors;
+      $('#ditherSlider').value = o.dither;
+      $('#ditherValue').textContent = o.dither;
+      $('#effortSlider').value = o.effort;
+      $('#effortValue').textContent = o.effort + '/6';
+
+      $$('.format-btn').forEach(b => {
+        b.classList.toggle('format-btn--active', b.dataset.format === o.format);
+      });
+
+      updateFormatSpecificUI();
+    }
+
+    // ================================================================
+    // PROCESS
+    // ================================================================
+    async function handleProcess() {
+      if (state.files.length === 0) {
+        showError('请先上传图片');
+        return;
+      }
+
+      state.processing = true;
+      state.error = null;
+      state.results = null;
+      renderProcessButton();
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const results = state.files.map((file) => {
+        const originalSize = file.size;
+        const compressionRatio = 0.3 + (Math.random() * 0.5);
+        const outputSize = Math.round(originalSize * compressionRatio);
+        const format = state.options.format === 'original'
+          ? (file.name.split('.').pop()?.toLowerCase() || 'jpeg')
+          : state.options.format;
+
+        return {
+          success: Math.random() > 0.05,
+          originalName: file.name,
+          originalSize,
+          outputSize,
+          outputWidth: state.options.width || Math.round(800 + Math.random() * 3200),
+          outputHeight: state.options.height || Math.round(600 + Math.random() * 2400),
+          format
+        };
+      });
+
+      state.results = { results };
+      state.processing = false;
+      renderAll();
+
+      // Auto-download: create a mock ZIP Blob and trigger download
+      triggerAutoDownload();
+    }
+
+    function triggerAutoDownload() {
+      // Create a mock ZIP Blob for demo purposes
+      const content = JSON.stringify(state.results, null, 2);
+      const blob = new Blob([content], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'processed_images.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Show download notification
+      const notif = document.getElementById('downloadNotif');
+      if (notif) notif.style.display = '';
+
+      // Clean up after 30s
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
+
+    function manualDownload() {
+      triggerAutoDownload();
+      const notif = document.getElementById('downloadNotif');
+      if (notif) notif.style.display = '';
+    }
+
+    function dismissDownloadNotif() {
+      const notif = document.getElementById('downloadNotif');
+      if (notif) notif.style.display = 'none';
+    }
+
+    function showError(msg) {
+      state.error = msg;
+      renderAll();
+      setTimeout(() => {
+        state.error = null;
+        renderAll();
+      }, 5000);
+    }
+
+    // ================================================================
+    // RENDER
+    // ================================================================
+    function renderAll() {
+      renderFileList();
+      renderProcessButton();
+      renderError();
+      renderResults();
+    }
+
+    function renderFileList() {
+      if (state.files.length === 0) {
+        fileListSection.style.display = 'none';
+        processSection.style.display = 'none';
+        return;
+      }
+
+      fileListSection.style.display = '';
+      fileCount.textContent = state.files.length;
+
+      fileGrid.innerHTML = state.files.map((file, i) => {
+        const isImage = file.type?.startsWith('image/');
+        const thumbContent = isImage
+          ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}">`
+          : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+
+        return `
+          <div class="file-card">
+            <div class="file-card__thumb">${thumbContent}</div>
+            <div class="file-card__info">
+              <div class="file-card__name" title="${file.name}">${file.name}</div>
+              <div class="file-card__size">${formatSize(file.size)}</div>
+            </div>
+            <button class="file-card__remove" onclick="removeFile(${i})" aria-label="移除 ${file.name}">✕</button>
+          </div>`;
+      }).join('');
+
+      processSection.style.display = '';
+      processBtnText.textContent = `开始处理 ${state.files.length} 张图片`;
+    }
+
+    function renderProcessButton() {
+      if (state.files.length === 0) {
+        processSection.style.display = 'none';
+        return;
+      }
+      processSection.style.display = '';
+
+      if (state.processing) {
+        processBtn.disabled = true;
+        processBtn.innerHTML = '<span class="process-btn__spinner"></span> 处理中...';
+      } else {
+        processBtn.disabled = false;
+        processBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 4.5v4L12 15l-9-4.5v-4L12 2z"/><path d="M12 15l9-4.5v4L12 22l-9-4.5v-4L12 15z"/></svg> 开始处理 ${state.files.length} 张图片`;
+      }
+    }
+
+    function renderError() {
+      if (state.error) {
+        errorAlert.style.display = '';
+        errorDesc.textContent = state.error;
+      } else {
+        errorAlert.style.display = 'none';
+      }
+    }
+
+    function renderResults() {
+      if (!state.results) {
+        resultsSection.style.display = 'none';
+        return;
+      }
+
+      resultsSection.style.display = '';
+      const successResults = state.results.results.filter(r => r.success);
+      const totalOrig = successResults.reduce((s, r) => s + r.originalSize, 0);
+      const totalOut = successResults.reduce((s, r) => s + r.outputSize, 0);
+      const ratio = totalOrig > 0 ? ((totalOrig - totalOut) / totalOrig * 100).toFixed(1) : 0;
+
+      statsRow.innerHTML = `
+        <div class="stat-card glass-panel">
+          <div class="stat-card__label">处理数量</div>
+          <div class="stat-card__value">${successResults.length}/${state.results.results.length}</div>
+        </div>
+        <div class="stat-card glass-panel">
+          <div class="stat-card__label">原始大小</div>
+          <div class="stat-card__value">${formatSize(totalOrig)}</div>
+        </div>
+        <div class="stat-card glass-panel">
+          <div class="stat-card__label">压缩后 / 节省</div>
+          <div class="stat-card__value stat-card__value--success">${formatSize(totalOut)}</div>
+          <div class="stat-card__sub">-${ratio}%</div>
+        </div>
+      `;
+
+      resultListEl.innerHTML = state.results.results.map(r => {
+        if (r.success) {
+          const savings = ((r.originalSize - r.outputSize) / r.originalSize * 100).toFixed(1);
+          return `
+            <div class="result-item result-item--success">
+              <svg class="result-item__icon result-item__icon--success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <div class="result-item__info">
+                <div class="result-item__name">${r.originalName}</div>
+                <div class="result-item__meta">
+                  ${formatSize(r.originalSize)} → ${formatSize(r.outputSize)}
+                  <span class="savings">(-${savings}%)</span>
+                  <span class="dimensions">${r.outputWidth}×${r.outputHeight}</span>
+                </div>
+              </div>
+              <span class="result-item__badge">${r.format}</span>
+            </div>`;
+        } else {
+          return `
+            <div class="result-item result-item--error">
+              <svg class="result-item__icon result-item__icon--error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div class="result-item__info">
+                <div class="result-item__name">${r.originalName}</div>
+                <div class="result-item__meta" style="color:var(--color-error)">处理失败</div>
+              </div>
+            </div>`;
+        }
+      }).join('');
+
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ================================================================
+    // INPUT LISTENERS
+    // ================================================================
+    $('#widthInput').addEventListener('input', function() {
+      state.options.width = this.value ? parseInt(this.value) : null;
+    });
+    $('#heightInput').addEventListener('input', function() {
+      state.options.height = this.value ? parseInt(this.value) : null;
+    });
+
+    // ================================================================
+    // INIT
+    // ================================================================
+    updateFormatSpecificUI();
+    renderIcoSizes();
+    renderPresets();
+  </script>
+</body>
+</html>
