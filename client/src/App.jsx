@@ -199,9 +199,11 @@ export default function App() {
     setDownloadUrl(null);
     setShowDownloadNotif(false);
 
-    // 压缩包名称取首个文件名，保证每次有区别
+    // 压缩包名称：单图用首图名，多图用「首图名等N张图片」，保证每次有区别
     const firstBase = (files[0]?.name || '').replace(/\.[^.]+$/, '') || 'processed_images';
-    const zipName = `${firstBase}_processed.zip`;
+    const zipName = files.length > 1
+      ? `${firstBase}等${files.length}张图片_processed.zip`
+      : `${firstBase}_processed.zip`;
     setDownloadName(zipName);
 
     try {

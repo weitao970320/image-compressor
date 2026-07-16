@@ -218,13 +218,7 @@ npm run dev          # 同时启动前端(5173) + 后端(3001) 开发
 
 ## 📸 界面预览
 
-> 📷 把一张应用截图放到 `docs/screenshot.png`，替换下面这行即可：
->
-> `![preview](docs/screenshot.png)`
-
-<p align="center">
-  <i>「上传区即一切」—— 在一个区域完成设置，一次提交解决全部。</i>
-</p>
+![界面预览](docs/screenshot.png)
 
 ---
 
