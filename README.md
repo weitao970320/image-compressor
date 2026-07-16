@@ -118,9 +118,53 @@ npm run dev        # 默认 http://localhost:5173
 
 ### 可选：GitHub Actions 自动部署
 
-如需推送到 `main` 即自动发布，可追加 `.github/workflows/deploy.yml`（已在本地方便取用）。
-注意：GitHub 要求推送工作流文件必须拥有 `workflow` 权限的 Token，若你的令牌没有该权限，
-请用具备权限的账户推送该文件，并将上面的 Source 改为 **GitHub Actions**。
+如需推送到 `main` 即自动发布，在仓库根目录创建 `.github/workflows/deploy.yml`，内容如下：
+
+```yaml
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+> ⚠️ GitHub 要求推送工作流文件必须拥有 `workflow` 权限的 Token。若你的令牌没有该权限，
+> 请用具备权限的账户推送此文件，并将 Pages 的 **Source** 改为 **GitHub Actions**。
 
 ### 手动构建
 
