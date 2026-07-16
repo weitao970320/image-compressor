@@ -505,6 +505,9 @@ export default function App() {
               {options.format === 'ico' && (
                 <div className="settings-group settings-group--full">
                   <div className="settings-group__label">ICO 包含尺寸</div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: '4px 0 0' }}>
+                    等比缩放适应、不裁切，非正方形图片多余区域为透明像素。
+                  </p>
                   <div className="ico-sizes">
                     {ICO_SIZES_ALL.map(size => (
                       <button

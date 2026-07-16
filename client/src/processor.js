@@ -215,8 +215,15 @@ async function buildICO(img, srcW, srcH, sizes) {
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext('2d');
-    const c = coverRect(srcW, srcH, size, size);
-    ctx.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, size, size);
+    // 等比缩放适应（contain）：不裁切，超出部分保留透明，不主动放大模糊
+    const scale = Math.min(1, size / srcW, size / srcH);
+    const dw = Math.round(srcW * scale);
+    const dh = Math.round(srcH * scale);
+    const dx = Math.round((size - dw) / 2);
+    const dy = Math.round((size - dh) / 2);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, srcW, srcH, dx, dy, dw, dh);
 
     const pngBlob = await new Promise((resolve) =>
       canvas.toBlob((b) => resolve(b), 'image/png'),
