@@ -100,21 +100,29 @@ npm run dev        # 默认 http://localhost:5173
 
 ---
 
-## ☁️ 一键部署到 GitHub Pages
+## ☁️ 部署到 GitHub Pages
 
 本应用是纯静态站点，部署到 GitHub Pages **完全免费**，且无需任何后端。
 
-### 全自动（推荐）
+> 🌐 **已上线**：<https://weitao970320.github.io/image-compressor/>
 
-仓库已内置 GitHub Actions 工作流。你只需：
+### 当前采用：分支部署（gh-pages）
 
-1. 把代码推送到 GitHub 仓库的 `main` 分支；
-2. 进入仓库 **Settings → Pages → Build and deployment → Source**，选择 **GitHub Actions**；
-3. 等待 Actions 自动构建并发布，几分钟后访问 `https://<用户名>.github.io/image-compressor/`。
+仓库已通过 `gh-pages` 分支部署，配置方式如下：
 
-每次 `git push` 都会自动重新部署，爽到飞起 🚀
+1. 进入仓库 **Settings → Pages → Build and deployment → Source**，选择 **Deploy from a branch**；
+2. Branch 选 **`gh-pages`**，目录选 **`/ (root)`**，保存；
+3. 访问 `https://<用户名>.github.io/image-compressor/`。
 
-### 手动部署
+重新发布只需把最新的 `client/dist/` 推送到 `gh-pages` 分支即可。
+
+### 可选：GitHub Actions 自动部署
+
+如需推送到 `main` 即自动发布，可追加 `.github/workflows/deploy.yml`（已在本地方便取用）。
+注意：GitHub 要求推送工作流文件必须拥有 `workflow` 权限的 Token，若你的令牌没有该权限，
+请用具备权限的账户推送该文件，并将上面的 Source 改为 **GitHub Actions**。
+
+### 手动构建
 
 ```bash
 cd client && npm run build
