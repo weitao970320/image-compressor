@@ -1,8 +1,11 @@
 // =============================================================================
 // 浏览器端图片处理引擎 — 纯前端，无需任何服务器
 // 使用 Canvas API 完成缩放 / 裁切 / 格式转换，自实现 ZIP 打包（STORE 模式）。
+// SVG → 图标字体：复用归一化管线 + opentype.js 组装字形，WOFF 用 CompressionStream 封装。
 // 所有像素处理均在用户浏览器内完成，图片不会上传到任何服务器。
 // =============================================================================
+
+import opentype from 'opentype.js';
 
 // ----------------------------- CRC32（ZIP 校验用） -----------------------------
 const crcTable = (() => {
@@ -350,16 +353,8 @@ export async function exportSVG(file, opts = {}) {
 
   sanitizeSvg(root);
 
-  // 量测实际绘制范围（需挂载到文档才能调用 getBBox）
-  const holder = document.createElement('div');
-  holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden;';
-  holder.appendChild(root);
-  document.body.appendChild(holder);
-
-  let bbox;
-  try { bbox = root.getBBox(); } catch { bbox = null; }
-  document.body.removeChild(holder);
-  doc.appendChild(root); // 量测后 root 被临时移出，重新挂回文档以便重建
+  // 量测实际绘制范围（克隆节点挂载到文档调用 getBBox）
+  let bbox = measureBBox(root);
 
   if (!bbox || !(bbox.width > 0) || !(bbox.height > 0)) {
     const vb = parseViewBox(root.getAttribute('viewBox'));
@@ -405,11 +400,455 @@ export async function exportSVG(file, opts = {}) {
   while (root.firstChild) g.appendChild(root.firstChild); // 搬运清洗后的全部子节点
   newSvg.appendChild(g);
 
-  doc.replaceChild(newSvg, root);
-
-  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc.documentElement);
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(newSvg);
   const blob = new Blob([xml], { type: 'image/svg+xml' });
   return { blob, width: outW, height: outH };
+}
+
+// -------------------------- SVG → OpenType 字形路径 --------------------------
+// 复用 sanitizeSvg + getBBox：把每个图形（path/rect/circle/ellipse/polygon/line）
+// 归一化到 em 方形，并转换坐标（Y 轴翻转，SVG 的 y 向下 → 字体的 y 向上）。
+
+function measureBBox(root) {
+  // 用 clone 量测：clone 不是 documentElement，可安全挂到文档调用 getBBox；几何与原节点一致
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden;';
+  const clone = root.cloneNode(true);
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  let bbox;
+  try { bbox = clone.getBBox(); } catch { bbox = null; }
+  document.body.removeChild(holder);
+
+  if (bbox && bbox.width > 0 && bbox.height > 0) return { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
+  const vb = parseViewBox(root.getAttribute('viewBox'));
+  if (vb) return { x: vb.x, y: vb.y, width: vb.w, height: vb.h };
+  return { x: 0, y: 0, width: parseFloat(root.getAttribute('width')) || 100, height: parseFloat(root.getAttribute('height')) || 100 };
+}
+
+// 把内容 bbox 映射到 [pad, unitsPerEm-pad] 的方形内（contain 居中），并翻转 Y
+function makeEmMap(bbox, unitsPerEm, pad) {
+  const inner = unitsPerEm - 2 * pad;
+  const scale = inner / Math.max(bbox.width, bbox.height);
+  const ox = pad + (inner - bbox.width * scale) / 2 - bbox.x * scale;
+  const oy = pad + (inner - bbox.height * scale) / 2 - bbox.y * scale;
+  return (x, y) => {
+    const fx = x * scale + ox;
+    const fy = unitsPerEm - (y * scale + oy); // 翻转 Y 轴
+    return [fx, fy];
+  };
+}
+
+// SVG 圆弧命令 → 三次贝塞尔（标准端点-中心参数化）
+function arcToCubic(x1, y1, x2, y2, rx, ry, phiDeg, largeArc, sweep) {
+  const phi = phiDeg * Math.PI / 180;
+  const cos = Math.cos(phi), sin = Math.sin(phi);
+  const dx = (x1 - x2) / 2, dy = (y1 - y2) / 2;
+  const x1p = cos * dx + sin * dy;
+  const y1p = -sin * dx + cos * dy;
+  let rxn = Math.abs(rx), ryn = Math.abs(ry);
+  const lambda = (x1p * x1p) / (rxn * rxn) + (y1p * y1p) / (ryn * ryn);
+  if (lambda > 1) { const s = Math.sqrt(lambda); rxn *= s; ryn *= s; }
+  const sign = (largeArc === sweep) ? -1 : 1;
+  const denom = (rxn * rxn * y1p * y1p + ryn * ryn * x1p * x1p) || 1;
+  let co = sign * Math.sqrt(Math.max(0, (rxn * rxn * ryn * ryn - rxn * rxn * y1p * y1p - ryn * ryn * x1p * x1p) / denom));
+  if (isNaN(co)) co = 0;
+  const cxp = co * (rxn * y1p) / ryn;
+  const cyp = co * (-ryn * x1p) / rxn;
+  const cx = cos * cxp - sin * cyp + (x1 + x2) / 2;
+  const cy = sin * cxp + cos * cyp + (y1 + y2) / 2;
+  const angle = (ux, uy, vx, vy) => {
+    const dot = ux * vx + uy * vy;
+    const len = Math.sqrt(ux * ux + uy * uy) * Math.sqrt(vx * vx + vy * vy) || 1;
+    let a = Math.acos(Math.max(-1, Math.min(1, dot / len)));
+    if (ux * vy - uy * vx < 0) a = -a;
+    return a;
+  };
+  const theta1 = angle(1, 0, (x1p - cxp) / rxn, (y1p - cyp) / ryn);
+  let delta = angle((x1p - cxp) / rxn, (y1p - cyp) / ryn, (-x1p - cxp) / rxn, (-y1p - cyp) / ryn);
+  if (!sweep && delta > 0) delta -= 2 * Math.PI;
+  if (sweep && delta < 0) delta += 2 * Math.PI;
+  const segs = Math.max(1, Math.ceil(Math.abs(delta) / (Math.PI / 2)));
+  const dTheta = delta / segs;
+  const t = (4 / 3) * Math.tan(dTheta / 4);
+  const out = [];
+  let px = x1, py = y1;
+  for (let i = 0; i < segs; i++) {
+    const a1 = theta1 + i * dTheta;
+    const a2 = a1 + dTheta;
+    const ex = cx + rxn * Math.cos(a2);
+    const ey = cy + ryn * Math.sin(a2);
+    const c1x = px + t * (-rxn * Math.sin(a1));
+    const c1y = py + t * (ryn * Math.cos(a1));
+    const c2x = ex - t * (-rxn * Math.sin(a2));
+    const c2y = ey - t * (ryn * Math.cos(a2));
+    out.push([c1x, c1y, c2x, c2y, ex, ey]);
+    px = ex; py = ey;
+  }
+  return out;
+}
+
+// 解析 path 的 d 属性：处理全部命令（含相对坐标），逐点经 map 变换后写入 opentype.Path
+function appendPathD(otPath, d, map) {
+  if (!d) return;
+  const tokens = d.match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g);
+  if (!tokens) return;
+  let i = 0, cx = 0, cy = 0, sx = 0, sy = 0, pcx = null, pcy = null, cmd = null;
+  const num = () => parseFloat(tokens[i++]);
+  while (i < tokens.length) {
+    const tk = tokens[i];
+    if (/[A-Za-z]/.test(tk)) { cmd = tk; i++; }
+    else if (!cmd) { i++; continue; }
+    const abs = cmd === cmd.toUpperCase();
+    const c = cmd.toUpperCase();
+    if (c === 'M') {
+      let x = num(), y = num();
+      if (!abs) { x += cx; y += cy; }
+      const [X, Y] = map(x, y); otPath.moveTo(X, Y);
+      sx = x; sy = y; cx = x; cy = y; pcx = pcy = null;
+      cmd = abs ? 'L' : 'l';
+    } else if (c === 'L') {
+      let x = num(), y = num();
+      if (!abs) { x += cx; y += cy; }
+      const [X, Y] = map(x, y); otPath.lineTo(X, Y);
+      cx = x; cy = y; pcx = pcy = null;
+    } else if (c === 'H') {
+      let x = num();
+      if (!abs) x += cx;
+      const [X, Y] = map(x, cy); otPath.lineTo(X, Y);
+      cx = x; pcx = pcy = null;
+    } else if (c === 'V') {
+      let y = num();
+      if (!abs) y += cy;
+      const [X, Y] = map(cx, y); otPath.lineTo(X, Y);
+      cy = y; pcx = pcy = null;
+    } else if (c === 'C') {
+      let x1 = num(), y1 = num(), x2 = num(), y2 = num(), x = num(), y = num();
+      if (!abs) { x1 += cx; y1 += cy; x2 += cx; y2 += cy; x += cx; y += cy; }
+      const [X1, Y1] = map(x1, y1), [X2, Y2] = map(x2, y2), [X, Y] = map(x, y);
+      otPath.curveTo(X1, Y1, X2, Y2, X, Y);
+      pcx = x2; pcy = y2; cx = x; cy = y;
+    } else if (c === 'S') {
+      let x2 = num(), y2 = num(), x = num(), y = num();
+      if (!abs) { x2 += cx; y2 += cy; x += cx; y += cy; }
+      const rcx = pcx == null ? cx : 2 * cx - pcx;
+      const rcy = pcy == null ? cy : 2 * cy - pcy;
+      const [X1, Y1] = map(rcx, rcy), [X2, Y2] = map(x2, y2), [X, Y] = map(x, y);
+      otPath.curveTo(X1, Y1, X2, Y2, X, Y);
+      pcx = x2; pcy = y2; cx = x; cy = y;
+    } else if (c === 'Q') {
+      let x1 = num(), y1 = num(), x = num(), y = num();
+      if (!abs) { x1 += cx; y1 += cy; x += cx; y += cy; }
+      const [X1, Y1] = map(x1, y1), [X, Y] = map(x, y);
+      otPath.quadTo(X1, Y1, X, Y);
+      pcx = x1; pcy = y1; cx = x; cy = y;
+    } else if (c === 'T') {
+      let x = num(), y = num();
+      if (!abs) { x += cx; y += cy; }
+      const rcx = pcx == null ? cx : 2 * cx - pcx;
+      const rcy = pcy == null ? cy : 2 * cy - pcy;
+      const [X1, Y1] = map(rcx, rcy), [X, Y] = map(x, y);
+      otPath.quadTo(X1, Y1, X, Y);
+      pcx = rcx; pcy = rcy; cx = x; cy = y;
+    } else if (c === 'A') {
+      let rx = num(), ry = num(), phi = num(), laf = num(), sf = num(), x = num(), y = num();
+      if (!abs) { x += cx; y += cy; }
+      const segs = arcToCubic(cx, cy, x, y, rx, ry, phi, laf, sf);
+      for (const s of segs) {
+        const [c1x, c1y] = map(s[0], s[1]), [c2x, c2y] = map(s[2], s[3]), [X, Y] = map(s[4], s[5]);
+        otPath.curveTo(c1x, c1y, c2x, c2y, X, Y);
+      }
+      pcx = pcy = null; cx = x; cy = y;
+    } else if (c === 'Z') {
+      otPath.close();
+      cx = sx; cy = sy; pcx = pcy = null;
+    } else { i++; }
+  }
+}
+
+function emitEllipse(otPath, cxv, cyv, rx, ry, map) {
+  const k = 0.5522847498307936;
+  const top = [cxv, cyv - ry], right = [cxv + rx, cyv], bottom = [cxv, cyv + ry], left = [cxv - rx, cyv];
+  const c1 = [cxv + rx * k, cyv - ry], c2 = [cxv + rx, cyv - ry * k];
+  const c3 = [cxv + rx, cyv + ry * k], c4 = [cxv + rx * k, cyv + ry];
+  const c5 = [cxv - rx * k, cyv + ry], c6 = [cxv - rx, cyv + ry * k];
+  const c7 = [cxv - rx, cyv - ry * k], c8 = [cxv - rx * k, cyv - ry];
+  let S = map(top[0], top[1]); otPath.moveTo(S[0], S[1]);
+  let a = map(c1[0], c1[1]), b = map(c2[0], c2[1]), e = map(right[0], right[1]); otPath.curveTo(a[0], a[1], b[0], b[1], e[0], e[1]);
+  a = map(c3[0], c3[1]); b = map(c4[0], c4[1]); e = map(bottom[0], bottom[1]); otPath.curveTo(a[0], a[1], b[0], b[1], e[0], e[1]);
+  a = map(c5[0], c5[1]); b = map(c6[0], c6[1]); e = map(left[0], left[1]); otPath.curveTo(a[0], a[1], b[0], b[1], e[0], e[1]);
+  a = map(c7[0], c7[1]); b = map(c8[0], c8[1]); e = map(top[0], top[1]); otPath.curveTo(a[0], a[1], b[0], b[1], e[0], e[1]);
+  otPath.close();
+}
+
+function appendShapeToPath(otPath, el, map) {
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'path') { appendPathD(otPath, el.getAttribute('d'), map); return; }
+  const num = (v) => parseFloat(v) || 0;
+  if (tag === 'rect') {
+    const x = num(el.getAttribute('x')), y = num(el.getAttribute('y'));
+    const w = num(el.getAttribute('width')), h = num(el.getAttribute('height'));
+    const rx = num(el.getAttribute('rx')), ry = num(el.getAttribute('ry')) || rx;
+    if (rx > 0 && ry > 0) {
+      const [aX, aY] = map(x + rx, y); otPath.moveTo(aX, aY);
+      const [bX, bY] = map(x + w - rx, y); otPath.lineTo(bX, bY);
+      let q1 = map(x + w, y), q2 = map(x + w, y + ry); otPath.quadTo(q1[0], q1[1], q2[0], q2[1]);
+      const [cX, cY] = map(x + w, y + h - ry); otPath.lineTo(cX, cY);
+      let q3 = map(x + w, y + h), q4 = map(x + w - rx, y + h); otPath.quadTo(q3[0], q3[1], q4[0], q4[1]);
+      const [dX, dY] = map(x + rx, y + h); otPath.lineTo(dX, dY);
+      let q5 = map(x, y + h), q6 = map(x, y + h - ry); otPath.quadTo(q5[0], q5[1], q6[0], q6[1]);
+      const [eX, eY] = map(x, y + ry); otPath.lineTo(eX, eY);
+      let q7 = map(x, y), q8 = map(x + rx, y); otPath.quadTo(q7[0], q7[1], q8[0], q8[1]);
+      otPath.close();
+    } else {
+      const [X0, Y0] = map(x, y); otPath.moveTo(X0, Y0);
+      const [X1, Y1] = map(x + w, y); otPath.lineTo(X1, Y1);
+      const [X2, Y2] = map(x + w, y + h); otPath.lineTo(X2, Y2);
+      const [X3, Y3] = map(x, y + h); otPath.lineTo(X3, Y3);
+      otPath.close();
+    }
+    return;
+  }
+  if (tag === 'circle') { emitEllipse(otPath, num(el.getAttribute('cx')), num(el.getAttribute('cy')), num(el.getAttribute('r')), num(el.getAttribute('r')), map); return; }
+  if (tag === 'ellipse') { emitEllipse(otPath, num(el.getAttribute('cx')), num(el.getAttribute('cy')), num(el.getAttribute('rx')), num(el.getAttribute('ry')), map); return; }
+  if (tag === 'polygon' || tag === 'polyline') {
+    const pts = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number).filter((n) => !isNaN(n));
+    for (let k = 0; k < pts.length; k += 2) {
+      const [X, Y] = map(pts[k], pts[k + 1]);
+      if (k === 0) otPath.moveTo(X, Y); else otPath.lineTo(X, Y);
+    }
+    if (tag === 'polygon') otPath.close();
+    return;
+  }
+  if (tag === 'line') {
+    const [X1, Y1] = map(num(el.getAttribute('x1')), num(el.getAttribute('y1')));
+    const [X2, Y2] = map(num(el.getAttribute('x2')), num(el.getAttribute('y2')));
+    otPath.moveTo(X1, Y1); otPath.lineTo(X2, Y2);
+    return;
+  }
+}
+
+// 把一段 SVG 文本转成 opentype.Path（em 方形、Y 翻转）
+export async function svgToOpenTypePath(svgText, unitsPerEm = 1000, pad = 0) {
+  const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+  const root = doc.documentElement;
+  if (!root || root.tagName.toLowerCase() !== 'svg') return null;
+  sanitizeSvg(root);
+  const bbox = measureBBox(root);
+  if (!bbox) return null;
+  const map = makeEmMap(bbox, unitsPerEm, pad);
+  const otPath = new opentype.Path();
+  root.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,line').forEach((el) => appendShapeToPath(otPath, el, map));
+  if (!otPath.commands || otPath.commands.length === 0) return null;
+  return otPath;
+}
+
+// ------------------------------ 图标字体（iconfont 模式） ------------------------------
+// 每个 SVG → 一个字形，码位从私有区 U+E001 起；生成 TTF + WOFF + CSS + 演示 HTML + JSON。
+
+function slugify(s) {
+  return (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join('-') || 'icon';
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function arrayBufferToBase64(buf) {
+  let binary = '';
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  return btoa(binary);
+}
+const align4 = (n) => Math.ceil(n / 4) * 4;
+function tagToUint32(t) { let v = 0; for (let i = 0; i < 4; i++) v = (v << 8) | (t.charCodeAt(i) || 0); return v >>> 0; }
+
+async function deflateZlib(buf) {
+  if (typeof CompressionStream === 'undefined') throw new Error('CompressionStream 不可用');
+  const cs = new CompressionStream('deflate'); // zlib 格式（RFC1950），即 WOFF 所需
+  const writer = cs.writable.getWriter();
+  writer.write(new Uint8Array(buf));
+  writer.close();
+  return await new Response(cs.readable).arrayBuffer();
+}
+
+// 把 OpenType(TTF) 字节按表压缩封装为 WOFF
+export async function ttfToWoff(ttf) {
+  const dv = new DataView(ttf);
+  const numTables = dv.getUint16(4);
+  const flavor = dv.getUint32(0);
+  const tables = [];
+  let off = 12;
+  for (let i = 0; i < numTables; i++) {
+    const tag = String.fromCharCode(dv.getUint8(off), dv.getUint8(off + 1), dv.getUint8(off + 2), dv.getUint8(off + 3));
+    const checksum = dv.getUint32(off + 4);
+    const offset = dv.getUint32(off + 8);
+    const length = dv.getUint32(off + 12);
+    tables.push({ tag, checksum, offset, length });
+    off += 16;
+  }
+  const totalSfnt = ttf.byteLength;
+  const compressed = [];
+  const dir = [];
+  let dataOffset = 44 + numTables * 20;
+  for (const t of tables) {
+    const slice = ttf.slice(t.offset, t.offset + t.length);
+    const comp = await deflateZlib(slice);
+    compressed.push(comp);
+    dir.push({ tag: t.tag, offset: dataOffset, compLength: comp.byteLength, origLength: t.length, checksum: t.checksum });
+    dataOffset += align4(comp.byteLength);
+  }
+  const out = new ArrayBuffer(dataOffset);
+  const odv = new DataView(out);
+  odv.setUint32(0, 0x774f4646); // 'wOFF'
+  odv.setUint32(4, flavor);
+  odv.setUint32(8, dataOffset);
+  odv.setUint16(12, numTables);
+  odv.setUint16(14, 0);
+  odv.setUint32(16, totalSfnt);
+  odv.setUint16(20, 1);
+  odv.setUint16(22, 0);
+  let p = 44;
+  for (const e of dir) {
+    odv.setUint32(p, tagToUint32(e.tag));
+    odv.setUint32(p + 4, e.offset);
+    odv.setUint32(p + 8, e.compLength);
+    odv.setUint32(p + 12, e.origLength);
+    odv.setUint32(p + 16, e.checksum);
+    p += 20;
+  }
+  let wp = 44 + numTables * 20;
+  for (const c of compressed) {
+    new Uint8Array(out).set(new Uint8Array(c), wp);
+    wp += align4(c.byteLength);
+  }
+  return out;
+}
+
+export async function buildIconFont(files, options, onProgress) {
+  const fontFamily = (options.fontFamily || 'MyIcons').trim() || 'MyIcons';
+  const unitsPerEm = 1000;
+  const padRaw = parseDim(options.fontPad);
+  const pad = (padRaw != null && padRaw >= 0) ? Math.min(padRaw, unitsPerEm * 0.4) : 0;
+
+  const svgFiles = files.filter((f) => (f.name.split('.').pop() || '').toLowerCase() === 'svg');
+  const otGlyphs = [new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: unitsPerEm, path: new opentype.Path() })];
+  const glyphs = [];
+  const previewSvgs = [];
+  const usedNames = new Set();
+  let code = 0xe001;
+
+  for (let i = 0; i < svgFiles.length; i++) {
+    const file = svgFiles[i];
+    try {
+      const text = await file.text();
+      const otPath = await svgToOpenTypePath(text, unitsPerEm, pad);
+      if (!otPath) { glyphs.push({ name: file.name, ok: false, error: '无法解析为有效路径' }); onProgress?.(i + 1, svgFiles.length); continue; }
+      let cls = 'icon-' + slugify(file.name.replace(/\.[^.]+$/, ''));
+      if (usedNames.has(cls)) cls = `${cls}-${i}`;
+      usedNames.add(cls);
+      const unicode = code++;
+      otGlyphs.push(new opentype.Glyph({ name: cls, unicode, advanceWidth: unitsPerEm, path: otPath }));
+      const prev = await exportSVG(file, { width: 240, bleed: 0, square: true });
+      const prevText = await prev.blob.text();
+      glyphs.push({ name: file.name, className: cls, unicode, code: unicode.toString(16), ok: true });
+      previewSvgs.push({ className: cls, unicode, code: unicode.toString(16), svg: prevText });
+    } catch (e) {
+      glyphs.push({ name: file.name, ok: false, error: e.message || '生成失败' });
+    }
+    onProgress?.(i + 1, svgFiles.length);
+  }
+
+  const font = new opentype.Font({ familyName: fontFamily, styleName: 'Regular', unitsPerEm, ascender: unitsPerEm, descender: 0, glyphs: otGlyphs });
+  const ttf = font.toArrayBuffer();
+  let woff = null;
+  try { woff = await ttfToWoff(ttf); } catch { woff = null; }
+
+  const safe = fontFamily.replace(/[^A-Za-z0-9_-]/g, '-');
+  const ttfB64 = arrayBufferToBase64(ttf);
+  const woffB64 = woff ? arrayBufferToBase64(woff) : null;
+  const srcParts = [];
+  if (woffB64) srcParts.push(`url('data:font/woff;charset=utf-8;base64,${woffB64}') format('woff')`);
+  srcParts.push(`url('data:font/ttf;charset=utf-8;base64,${ttfB64}') format('truetype')`);
+  // 每个图标的 ::before 内容规则（iconfont 标准用法：<i class="icon icon-xxx"></i> 即渲染对应字形）
+  const glyphCss = previewSvgs.map((p) => `.${p.className}::before { content: "\\${p.code}"; }`).join('\n');
+  const css = `@font-face {\n  font-family: '${fontFamily}';\n  src: ${srcParts.join(',\n       ')};\n  font-weight: normal;\n  font-style: normal;\n  font-display: block;\n}\n.icon {\n  font-family: '${fontFamily}';\n  font-weight: normal;\n  font-style: normal;\n  font-variant: normal;\n  line-height: 1;\n  display: inline-block;\n  -webkit-font-smoothing: antialiased;\n}\n${glyphCss}\n`;
+
+  const items = previewSvgs.map((p) => `      <li class="icon-item" data-cls="${escapeHtml(p.className)}" title="点击复制 ${escapeHtml(p.className)}">
+        <i class="icon ${escapeHtml(p.className)}"></i>
+        <span class="icon-name">${escapeHtml(p.className)}</span>
+        <code class="icon-code">&amp;#x${escapeHtml(p.code)};</code>
+      </li>`).join('\n');
+
+  const demo = `<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeHtml(fontFamily)} · 图标字体预览</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; background:#0f1220; color:#e8ecf5; padding:32px; }
+  h1 { font-size:20px; font-weight:700; margin:0 0 4px; }
+  .sub { color:#8b93a7; font-size:13px; margin-bottom:24px; }
+  .icon { font-size:28px; }
+  ${css}
+  .grid { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:12px; }
+  .icon-item { background:#181c2e; border:1px solid #262b40; border-radius:12px; padding:18px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; transition:.15s; }
+  .icon-item:hover { border-color:#5b8cff; transform:translateY(-2px); }
+  .icon-name { font-size:12px; color:#aeb6cc; word-break:break-all; text-align:center; }
+  .icon-code { font-size:11px; color:#6b738f; background:#0f1220; padding:2px 6px; border-radius:6px; }
+  .toast { position:fixed; left:50%; bottom:32px; transform:translateX(-50%) translateY(20px); background:#5b8cff; color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; opacity:0; transition:.2s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(fontFamily)}</h1>
+  <div class="sub">共 ${previewSvgs.length} 个图标 · 点击任意图标复制字体类名</div>
+  <ul class="grid">
+${items}
+  </ul>
+  <div class="toast" id="toast">已复制</div>
+  <script>
+    const t = document.getElementById('toast');
+    function showToast(msg){ t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 1400); }
+    document.querySelectorAll('.icon-item').forEach(li => {
+      li.addEventListener('click', async () => {
+        const cls = li.getAttribute('data-cls');
+        try { await navigator.clipboard.writeText(cls); showToast('已复制：' + cls); }
+        catch { const ta=document.createElement('textarea'); ta.value=cls; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('已复制：' + cls); }
+      });
+    });
+  </script>
+</body>
+</html>`;
+
+  const json = JSON.stringify({
+    fontFamily,
+    count: previewSvgs.length,
+    icons: previewSvgs.map((p) => ({ className: p.className, unicode: p.unicode, code: '&#x' + p.code + ';', css: '.' + p.className + '::before { content: "\\' + p.code + '"; }' })),
+  }, null, 2);
+
+  const zipFiles = [
+    woff ? { name: `${safe}.woff`, blob: new Blob([woff], { type: 'font/woff' }) } : null,
+    { name: `${safe}.ttf`, blob: new Blob([ttf], { type: 'font/ttf' }) },
+    { name: `${safe}.css`, blob: new Blob([css], { type: 'text/css' }) },
+    { name: 'demo.html', blob: new Blob([demo], { type: 'text/html' }) },
+    { name: 'glyphs.json', blob: new Blob([json], { type: 'application/json' }) },
+  ].filter(Boolean);
+
+  const zipBlob = await createZip(zipFiles);
+  return {
+    type: 'iconfont',
+    fontName: fontFamily,
+    count: previewSvgs.length,
+    total: svgFiles.length,
+    failed: glyphs.filter((g) => !g.ok).length,
+    glyphs,
+    previewSvgs,
+    zipBlob,
+    zipName: `${safe}_iconfont.zip`,
+    css,
+  };
 }
 
 // --------------------------------- 主入口 -------------------------------------

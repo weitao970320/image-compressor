@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { processFiles } from './processor';
+import { processFiles, buildIconFont } from './processor';
 
 // ========== 系统预设 ==========
 const SYSTEM_PRESETS = [
@@ -19,6 +19,7 @@ const FORMATS = [
   { value: 'webp', label: 'WebP', ext: '.webp' },
   { value: 'ico', label: 'ICO', ext: '.ico' },
   { value: 'svg', label: 'SVG', ext: '.svg' },
+  { value: 'iconfont', label: '图标字体', ext: '' },
   { value: 'original', label: '保持原格式', ext: '' },
 ];
 
@@ -96,9 +97,11 @@ export default function App() {
     lossless: false, effort: 4, colors: 256, dither: 1.0,
     progressive: true, stripMetadata: true, icoSizes: [16, 32, 48, 64, 128, 256],
     svgWidth: 1024, svgBleed: 100,
+    fontFamily: 'MyIcons', fontPad: 0,
   });
   const [processing, setProcessing] = useState(false);
   const [results, setResults] = useState(null);
+  const [fontResult, setFontResult] = useState(null);
   const [error, setError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -130,6 +133,7 @@ export default function App() {
       return [...prev, ...unique];
     });
     setResults(null);
+    setFontResult(null);
     setError(null);
     setDownloadUrl(null);
     setShowDownloadNotif(false);
@@ -147,10 +151,11 @@ export default function App() {
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
     setResults(null);
+    setFontResult(null);
     setDownloadUrl(null);
   };
 
-  const clearFiles = () => { setFiles([]); setResults(null); setDownloadUrl(null); setShowDownloadNotif(false); };
+  const clearFiles = () => { setFiles([]); setResults(null); setFontResult(null); setDownloadUrl(null); setShowDownloadNotif(false); };
 
   const updateOption = (key, value) => {
     setOptions(prev => ({ ...prev, [key]: value }));
@@ -199,8 +204,13 @@ export default function App() {
     setProcessing(true);
     setError(null);
     setResults(null);
+    setFontResult(null);
     setDownloadUrl(null);
     setShowDownloadNotif(false);
+
+    const isIconfont = options.format === 'iconfont';
+    const svgCount = files.filter((f) => (f.name.split('.').pop() || '').toLowerCase() === 'svg').length;
+    if (isIconfont && svgCount === 0) { setError('图标字体模式需要至少上传 1 个 SVG 文件'); setProcessing(false); return; }
 
     // 压缩包名称：单图用首图名，多图用「首图名等N张图片」，保证每次有区别
     const firstBase = (files[0]?.name || '').replace(/\.[^.]+$/, '') || 'processed_images';
@@ -210,20 +220,38 @@ export default function App() {
     setDownloadName(zipName);
 
     try {
-      const out = await processFiles(files, options, () => {});
-      setResults({ results: out.results });
+      if (isIconfont) {
+        const out = await buildIconFont(files, options, () => {});
+        setFontResult(out);
 
-      const url = URL.createObjectURL(out.zipBlob);
-      setDownloadUrl(url);
-      setShowDownloadNotif(true);
+        const url = URL.createObjectURL(out.zipBlob);
+        setDownloadUrl(url);
+        setDownloadName(out.zipName);
+        setShowDownloadNotif(true);
 
-      // 自动下载
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = zipName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        // 自动下载字体包
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = out.zipName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        const out = await processFiles(files, options, () => {});
+        setResults({ results: out.results });
+
+        const url = URL.createObjectURL(out.zipBlob);
+        setDownloadUrl(url);
+        setShowDownloadNotif(true);
+
+        // 自动下载
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = zipName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     } catch (err) {
       setError(err.message || '处理失败');
     } finally {
@@ -243,6 +271,27 @@ export default function App() {
       setShowDownloadNotif(true);
     }
   };
+
+  // 复制字体类名（图标字体模式：点击图标复制对应 class）
+  const copyFontClass = useCallback(async (cls) => {
+    try {
+      await navigator.clipboard.writeText(cls);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = cls;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    setCopiedClass(cls);
+    clearTimeout(copyFontClass._t);
+    copyFontClass._t = setTimeout(() => setCopiedClass(null), 1400);
+  }, []);
+
+  const [copiedClass, setCopiedClass] = useState(null);
 
   const currentFormat = FORMATS.find(f => f.value === options.format);
   const successResults = results?.results?.filter(r => r.success) || [];
@@ -467,8 +516,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 质量（JPEG / WebP 可调；PNG / SVG 不在此控制） */}
-              {options.format !== 'ico' && options.format !== 'original' && options.format !== 'png' && options.format !== 'svg' && (
+              {/* 质量（JPEG / WebP 可调；PNG / SVG / 图标字体 不在此控制） */}
+              {options.format !== 'ico' && options.format !== 'original' && options.format !== 'png' && options.format !== 'svg' && options.format !== 'iconfont' && (
                 <div className="settings-group">
                   <div className="settings-group__label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -496,7 +545,7 @@ export default function App() {
               )}
 
               {/* 尺寸（光栅格式） */}
-              {options.format !== 'ico' && options.format !== 'svg' && (
+              {options.format !== 'ico' && options.format !== 'svg' && options.format !== 'iconfont' && (
                 <div className="settings-group settings-group--full">
                   <div className="settings-group__label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
@@ -538,6 +587,27 @@ export default function App() {
                   <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: '8px 0 0' }}>
                     出血：图标四周统一留白，避免贴边被裁切。留空默认取画布宽度的 10%。
                   </p>
+                </div>
+              )}
+
+              {/* 图标字体设置 */}
+              {options.format === 'iconfont' && (
+                <div className="settings-group settings-group--full">
+                  <div className="settings-group__label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8v8H8z"/></svg>
+                    图标字体（iconfont 模式）
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: '4px 0 12px' }}>
+                    所有上传的 SVG 将合并为一个图标字体（TTF + WOFF），并生成 CSS、演示页与可复制的字体类名。
+                  </p>
+                  <div className="dimension-row">
+                    <input type="text" className="input-field" placeholder="字体名称，如 MyIcons" maxLength="32" value={options.fontFamily} onChange={(e) => updateOption('fontFamily', e.target.value)} style={{ minWidth: 200 }} />
+                  </div>
+                  <div className="dimension-row" style={{ marginTop: 'var(--space-sm)' }}>
+                    <input type="number" className="input-field" placeholder="图标内边距" min="0" max="400" value={options.fontPad} onChange={(e) => updateOption('fontPad', e.target.value)} />
+                    <span className="dimension-sep">px</span>
+                    <span className="dimension-sep">画布内留白（留空为 0）</span>
+                  </div>
                 </div>
               )}
 
@@ -658,6 +728,67 @@ export default function App() {
                       <span className="result-item__badge">{r.format}</span>
                     )}
                   </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 图标字体结果 */}
+          {fontResult && (
+            <section className="iconfont-result">
+              <div className="results-section__header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                图标字体生成完成
+              </div>
+
+              {/* 下载通知 */}
+              {showDownloadNotif && downloadUrl && (
+                <div className="download-notif">
+                  <div className="download-notif__inner">
+                    <svg className="download-notif__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>字体包已自动下载（{fontResult.zipName}）</span>
+                    <button className="download-notif__retry" onClick={manualDownload}>重新下载</button>
+                    <button className="download-notif__dismiss" onClick={() => setShowDownloadNotif(false)} aria-label="关闭">✕</button>
+                  </div>
+                </div>
+              )}
+
+              {/* 统计 */}
+              <div className="stats-row">
+                <div className="stat-card">
+                  <div className="stat-card__label">字体名称</div>
+                  <div className="stat-card__value">{fontResult.fontName}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card__label">图标数量</div>
+                  <div className="stat-card__value">{fontResult.count}/{fontResult.total}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card__label">生成失败</div>
+                  <div className="stat-card__value stat-card__value--success">{fontResult.failed}</div>
+                </div>
+              </div>
+
+              {/* 使用说明 */}
+              <div className="iconfont-hint">
+                点击任意图标即可复制其字体类名（class），在项目中引入 <code>{fontResult.fontName}.css</code> 后使用 <code>&lt;i className="{fontResult.previewSvgs[0]?.className || 'icon-xxx'}" /&gt;</code> 即可。字体包内含 TTF / WOFF、CSS、演示页与 glyphs.json。
+              </div>
+
+              {/* 预览网格 */}
+              <div className="iconfont-grid">
+                {fontResult.previewSvgs.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`iconfont-card${copiedClass === p.className ? ' iconfont-card--copied' : ''}`}
+                    onClick={() => copyFontClass(p.className)}
+                    title={`点击复制 ${p.className}`}
+                  >
+                    <span className="iconfont-card__svg" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                    <span className="iconfont-card__name">{p.className}</span>
+                    <span className="iconfont-card__code">&amp;#x{p.code};</span>
+                    {copiedClass === p.className && <span className="iconfont-card__copied">已复制</span>}
+                  </button>
                 ))}
               </div>
             </section>
