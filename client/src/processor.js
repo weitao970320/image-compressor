@@ -773,9 +773,9 @@ export async function buildIconFont(files, options, onProgress) {
   const glyphCss = previewSvgs.map((p) => `.${p.className}::before { content: "\\${p.code}"; }`).join('\n');
   const css = `@font-face {\n  font-family: '${fontFamily}';\n  src: ${srcParts.join(',\n       ')};\n  font-weight: normal;\n  font-style: normal;\n  font-display: block;\n}\n.icon {\n  font-family: '${fontFamily}';\n  font-weight: normal;\n  font-style: normal;\n  font-variant: normal;\n  line-height: 1;\n  display: inline-block;\n  -webkit-font-smoothing: antialiased;\n}\n${glyphCss}\n`;
 
-  const items = previewSvgs.map((p) => `      <li class="icon-item" data-cls="${escapeHtml(p.className)}" title="点击复制 ${escapeHtml(p.className)}">
+  const items = previewSvgs.map((p) => `      <li class="icon-item" data-cls="${escapeHtml(p.className)}" data-code="${escapeHtml(p.code)}" title="点击复制 unicode（当前模式）">
         <i class="icon ${escapeHtml(p.className)}"></i>
-        <span class="icon-name">${escapeHtml(p.className)}</span>
+        <span class="icon-name" title="点击复制类名 ${escapeHtml(p.className)}">${escapeHtml(p.className)}</span>
         <code class="icon-code">&amp;#x${escapeHtml(p.code)};</code>
       </li>`).join('\n');
 
@@ -789,34 +789,92 @@ export async function buildIconFont(files, options, onProgress) {
   * { box-sizing: border-box; }
   body { margin:0; font-family: -apple-system, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; background:#0f1220; color:#e8ecf5; padding:32px; }
   h1 { font-size:20px; font-weight:700; margin:0 0 4px; }
-  .sub { color:#8b93a7; font-size:13px; margin-bottom:24px; }
+  .controls { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  .search { flex:1; min-width:200px; background:#181c2e; border:1px solid #2a2f45; border-radius:10px; color:#e8ecf5; font-size:13px; padding:9px 12px; outline:none; }
+  .search:focus { border-color:#5b8cff; }
+  .mode { display:inline-flex; background:#181c2e; border:1px solid #2a2f45; border-radius:10px; padding:3px; gap:3px; }
+  .mode-btn { border:0; background:transparent; color:#aeb6cc; font-size:12px; padding:6px 12px; border-radius:8px; cursor:pointer; transition:.15s; }
+  .mode-btn--active { background:#5b8cff; color:#fff; }
+  .sub { color:#8b93a7; font-size:13px; margin-bottom:20px; }
   .icon { font-size:28px; }
   ${css}
   .grid { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:12px; }
   .icon-item { background:#181c2e; border:1px solid #262b40; border-radius:12px; padding:18px 10px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; transition:.15s; }
   .icon-item:hover { border-color:#5b8cff; transform:translateY(-2px); }
-  .icon-name { font-size:12px; color:#aeb6cc; word-break:break-all; text-align:center; }
+  .icon-name { font-size:12px; color:#aeb6cc; word-break:break-all; text-align:center; cursor:pointer; border-bottom:1px dashed transparent; }
+  .icon-name:hover { color:#cfd6e8; border-bottom-color:#5b8cff; }
   .icon-code { font-size:11px; color:#6b738f; background:#0f1220; padding:2px 6px; border-radius:6px; }
-  .toast { position:fixed; left:50%; bottom:32px; transform:translateX(-50%) translateY(20px); background:#5b8cff; color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; opacity:0; transition:.2s; pointer-events:none; }
+  .toast { position:fixed; left:50%; bottom:32px; transform:translateX(-50%) translateY(20px); background:#5b8cff; color:#fff; padding:10px 18px; border-radius:999px; font-size:13px; opacity:0; transition:.2s; pointer-events:none; max-width:80vw; }
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
   <h1>${escapeHtml(fontFamily)}</h1>
-  <div class="sub">共 ${previewSvgs.length} 个图标 · 点击任意图标复制字体类名</div>
+  <div class="controls">
+    <input id="search" class="search" type="search" placeholder="搜索图标类名…" autocomplete="off" />
+    <div class="mode" id="mode">
+      <button type="button" class="mode-btn mode-btn--active" data-mode="dev">开发复制</button>
+      <button type="button" class="mode-btn" data-mode="design">设计复制</button>
+    </div>
+  </div>
+  <div class="sub" id="count">共 ${previewSvgs.length} 个图标 · 点击图标复制（开发：浏览器可解析的 unicode；设计：可粘贴进 Figma 的字符）</div>
   <ul class="grid">
 ${items}
   </ul>
   <div class="toast" id="toast">已复制</div>
   <script>
     const t = document.getElementById('toast');
-    function showToast(msg){ t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 1400); }
+    function showToast(msg){ t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'), 1600); }
+    let mode = 'dev';
+    const modeBox = document.getElementById('mode');
+    modeBox.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => {
+      mode = b.dataset.mode;
+      modeBox.querySelectorAll('.mode-btn').forEach(x => x.classList.remove('mode-btn--active'));
+      b.classList.add('mode-btn--active');
+    }));
+    function fallbackCopy(text){
+      try { const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); const r=document.execCommand('copy'); ta.remove(); return r; }
+      catch { return false; }
+    }
+    function copyText(text){
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(()=>true).catch(()=>fallbackCopy(text));
+      }
+      return Promise.resolve(fallbackCopy(text));
+    }
     document.querySelectorAll('.icon-item').forEach(li => {
+      const cls = li.dataset.cls;
+      const code = li.dataset.code;
+      const char = String.fromCodePoint(parseInt(code, 16));
+      const dev = '&#x' + code + ';';
       li.addEventListener('click', async () => {
-        const cls = li.getAttribute('data-cls');
-        try { await navigator.clipboard.writeText(cls); showToast('已复制：' + cls); }
-        catch { const ta=document.createElement('textarea'); ta.value=cls; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('已复制：' + cls); }
+        const text = mode === 'design' ? char : dev;
+        const ok = await copyText(text);
+        const label = mode === 'design'
+          ? ('设计字符 · ' + cls + ' (U+' + code.toUpperCase() + ')')
+          : ('开发 unicode · ' + dev);
+        showToast((ok ? '已复制 ' : '复制失败：') + label);
       });
+      li.querySelector('.icon-name').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const ok = await copyText(cls);
+        showToast((ok ? '已复制类名：' : '复制失败：') + cls);
+      });
+    });
+    const search = document.getElementById('search');
+    const itemsAll = Array.from(document.querySelectorAll('.icon-item'));
+    const countEl = document.getElementById('count');
+    const total = itemsAll.length;
+    const baseSub = '点击图标复制（开发：浏览器可解析的 unicode；设计：可粘贴进 Figma 的字符）';
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      let shown = 0;
+      itemsAll.forEach(li => {
+        const match = li.dataset.cls.toLowerCase().includes(q);
+        li.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      countEl.textContent = q ? ('匹配 ' + shown + ' / ' + total + ' 个图标') : ('共 ' + total + ' 个图标 · ' + baseSub);
     });
   </script>
 </body>
@@ -825,7 +883,13 @@ ${items}
   const json = JSON.stringify({
     fontFamily,
     count: previewSvgs.length,
-    icons: previewSvgs.map((p) => ({ className: p.className, unicode: p.unicode, code: '&#x' + p.code + ';', css: '.' + p.className + '::before { content: "\\' + p.code + '"; }' })),
+    icons: previewSvgs.map((p) => ({
+      className: p.className,
+      unicode: p.unicode,
+      char: String.fromCodePoint(p.unicode),
+      code: '&#x' + p.code + ';',
+      css: '.' + p.className + '::before { content: "\\' + p.code + '"; }',
+    })),
   }, null, 2);
 
   const zipFiles = [

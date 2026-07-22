@@ -223,6 +223,7 @@ export default function App() {
       if (isIconfont) {
         const out = await buildIconFont(files, options, () => {});
         setFontResult(out);
+        setIconSearch('');
 
         const url = URL.createObjectURL(out.zipBlob);
         setDownloadUrl(url);
@@ -272,26 +273,51 @@ export default function App() {
     }
   };
 
-  // 复制字体类名（图标字体模式：点击图标复制对应 class）
-  const copyFontClass = useCallback(async (cls) => {
-    try {
-      await navigator.clipboard.writeText(cls);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = cls;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); } catch { /* ignore */ }
-      document.body.removeChild(ta);
-    }
-    setCopiedClass(cls);
-    clearTimeout(copyFontClass._t);
-    copyFontClass._t = setTimeout(() => setCopiedClass(null), 1400);
+  // 图标字体：搜索 + 复制（开发/设计两种 unicode 模式 + 类名）
+  const [iconSearch, setIconSearch] = useState('');
+  const [iconCopyMode, setIconCopyMode] = useState('dev'); // 'dev' | 'design'
+  const [copiedKey, setCopiedKey] = useState(null); // 高亮：复制的文本（类名 / unicode）
+  const [copyToast, setCopyToast] = useState('');
+
+  const flashCopied = useCallback((key, msg) => {
+    setCopiedKey(key);
+    setCopyToast(msg);
+    clearTimeout(flashCopied._t);
+    flashCopied._t = setTimeout(() => { setCopiedKey(null); setCopyToast(''); }, 1600);
   }, []);
 
-  const [copiedClass, setCopiedClass] = useState(null);
+  const copyText = useCallback(async (text) => {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch { return false; }
+    }
+  }, []);
+
+  const copyFontClass = useCallback(async (cls) => {
+    const ok = await copyText(cls);
+    flashCopied(cls, (ok ? '已复制类名：' : '复制失败：') + cls);
+  }, [copyText, flashCopied]);
+
+  const copyFontUnicode = useCallback(async (p) => {
+    const text = iconCopyMode === 'design' ? String.fromCodePoint(p.unicode) : `&#x${p.code};`;
+    const ok = await copyText(text);
+    const label = iconCopyMode === 'design'
+      ? `设计字符 · ${p.className} (U+${p.code.toUpperCase()})`
+      : `开发 unicode · &#x${p.code};`;
+    flashCopied(text, (ok ? '已复制 ' : '复制失败：') + label);
+  }, [iconCopyMode, copyText, flashCopied]);
+
+  // 图标字体预览：按搜索词过滤
+  const iconFiltered = fontResult
+    ? fontResult.previewSvgs.filter((p) => p.className.toLowerCase().includes(iconSearch.trim().toLowerCase()))
+    : [];
 
   const currentFormat = FORMATS.find(f => f.value === options.format);
   const successResults = results?.results?.filter(r => r.success) || [];
@@ -771,26 +797,57 @@ export default function App() {
 
               {/* 使用说明 */}
               <div className="iconfont-hint">
-                点击任意图标即可复制其字体类名（class），在项目中引入 <code>{fontResult.fontName}.css</code> 后使用 <code>&lt;i className="{fontResult.previewSvgs[0]?.className || 'icon-xxx'}" /&gt;</code> 即可。字体包内含 TTF / WOFF、CSS、演示页与 glyphs.json。
+                点击图标卡片复制 <b>unicode</b>：<b>开发</b> 复制浏览器可解析的 <code>&amp;#xNNNN;</code>，<b>设计</b> 复制可直接粘贴进 Figma 的字符；点击<b>类名</b>复制 class。字体包内含 TTF / WOFF、CSS、演示页与 glyphs.json。
+              </div>
+
+              {/* 搜索 + 复制模式 */}
+              <div className="iconfont-controls">
+                <input
+                  className="iconfont-search"
+                  type="search"
+                  placeholder="搜索图标类名…"
+                  value={iconSearch}
+                  onChange={(e) => setIconSearch(e.target.value)}
+                  aria-label="搜索图标类名"
+                />
+                <div className="iconfont-mode" role="group" aria-label="复制模式">
+                  <button type="button" className={`iconfont-mode__btn${iconCopyMode === 'dev' ? ' iconfont-mode__btn--active' : ''}`} onClick={() => setIconCopyMode('dev')}>开发复制</button>
+                  <button type="button" className={`iconfont-mode__btn${iconCopyMode === 'design' ? ' iconfont-mode__btn--active' : ''}`} onClick={() => setIconCopyMode('design')}>设计复制</button>
+                </div>
               </div>
 
               {/* 预览网格 */}
               <div className="iconfont-grid">
-                {fontResult.previewSvgs.map((p, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`iconfont-card${copiedClass === p.className ? ' iconfont-card--copied' : ''}`}
-                    onClick={() => copyFontClass(p.className)}
-                    title={`点击复制 ${p.className}`}
-                  >
-                    <span className="iconfont-card__svg" dangerouslySetInnerHTML={{ __html: p.svg }} />
-                    <span className="iconfont-card__name">{p.className}</span>
-                    <span className="iconfont-card__code">&amp;#x{p.code};</span>
-                    {copiedClass === p.className && <span className="iconfont-card__copied">已复制</span>}
-                  </button>
-                ))}
+                {iconFiltered.map((p, i) => {
+                  const devText = `&#x${p.code};`;
+                  const charText = String.fromCodePoint(p.unicode);
+                  const isCopied = copiedKey != null && (copiedKey === p.className || copiedKey === devText || copiedKey === charText);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`iconfont-card${isCopied ? ' iconfont-card--copied' : ''}`}
+                      onClick={() => copyFontUnicode(p)}
+                      title={`点击复制 ${iconCopyMode === 'design' ? '设计字符' : '开发 unicode'}（${p.className}）`}
+                    >
+                      <span className="iconfont-card__svg" dangerouslySetInnerHTML={{ __html: p.svg }} />
+                      <span
+                        className="iconfont-card__name"
+                        onClick={(e) => { e.stopPropagation(); copyFontClass(p.className); }}
+                        title="点击复制类名"
+                      >{p.className}</span>
+                      <span className="iconfont-card__code">&amp;#x{p.code};</span>
+                      {isCopied && <span className="iconfont-card__copied">已复制</span>}
+                    </button>
+                  );
+                })}
+                {iconFiltered.length === 0 && (
+                  <div className="iconfont-empty">没有匹配「{iconSearch}」的图标</div>
+                )}
               </div>
+
+              {/* 复制提示 */}
+              {copyToast && <div className="iconfont-toast">{copyToast}</div>}
             </section>
           )}
 

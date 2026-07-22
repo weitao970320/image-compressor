@@ -1219,6 +1219,13 @@ body {
   color: var(--color-text-secondary);
   word-break: break-all;
   line-height: 1.4;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.iconfont-card__name:hover {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent-a);
 }
 
 .iconfont-card__code {
@@ -1240,4 +1247,79 @@ body {
   padding: 2px 8px;
   border-radius: 999px;
   box-shadow: 0 4px 12px rgba(52, 211, 153, 0.35);
+}
+
+/* 搜索 + 复制模式 */
+.iconfont-controls {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.iconfont-search {
+  flex: 1;
+  min-width: 200px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 9px 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.iconfont-search::placeholder { color: var(--color-text-tertiary); }
+.iconfont-search:focus {
+  border-color: var(--color-accent-a);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+.iconfont-mode {
+  display: inline-flex;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+.iconfont-mode__btn {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.iconfont-mode__btn:hover { color: var(--color-text); }
+.iconfont-mode__btn--active {
+  background: var(--color-accent-a);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+}
+
+.iconfont-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+  padding: var(--space-xl);
+}
+
+.iconfont-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  background: var(--color-accent-a);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+  max-width: 80vw;
+  text-align: center;
 }
