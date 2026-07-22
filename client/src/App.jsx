@@ -18,6 +18,7 @@ const FORMATS = [
   { value: 'png', label: 'PNG', ext: '.png' },
   { value: 'webp', label: 'WebP', ext: '.webp' },
   { value: 'ico', label: 'ICO', ext: '.ico' },
+  { value: 'svg', label: 'SVG', ext: '.svg' },
   { value: 'original', label: '保持原格式', ext: '' },
 ];
 
@@ -94,6 +95,7 @@ export default function App() {
     format: 'jpeg', quality: 80, width: '', height: '', fit: 'inside',
     lossless: false, effort: 4, colors: 256, dither: 1.0,
     progressive: true, stripMetadata: true, icoSizes: [16, 32, 48, 64, 128, 256],
+    svgWidth: 1024, svgBleed: 100,
   });
   const [processing, setProcessing] = useState(false);
   const [results, setResults] = useState(null);
@@ -109,21 +111,22 @@ export default function App() {
   const [showDownloadNotif, setShowDownloadNotif] = useState(false);
 
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
   const presetInputRef = useRef(null);
 
   // 合并预设
   const allPresets = [...SYSTEM_PRESETS, ...customPresets.map(p => ({ ...p, isCustom: true }))];
 
-  // 处理文件选择
+  // 处理文件选择（支持单文件、多选与文件夹）
   const handleFileSelect = useCallback((newFiles) => {
-    const validExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'gif'];
+    const validExts = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'gif', 'svg'];
     const validFiles = Array.from(newFiles).filter(f => {
-      const ext = f.name.split('.').pop()?.toLowerCase();
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
       return validExts.includes(ext);
     });
     setFiles(prev => {
-      const existingKeys = new Set(prev.map(f => f.name + f.size));
-      const unique = validFiles.filter(f => !existingKeys.has(f.name + f.size));
+      const existingKeys = new Set(prev.map(f => (f.webkitRelativePath || f.name) + f.size));
+      const unique = validFiles.filter(f => !existingKeys.has((f.webkitRelativePath || f.name) + f.size));
       return [...prev, ...unique];
     });
     setResults(null);
@@ -303,7 +306,11 @@ export default function App() {
                 </svg>
               </div>
               <p className="upload-zone__title">拖拽图片到此处，或点击上传</p>
-              <p className="upload-zone__desc">支持 JPG、PNG、WebP、BMP、TIFF、GIF — 批量处理，本地完成</p>
+              <p className="upload-zone__desc">支持 JPG、PNG、WebP、BMP、TIFF、GIF、SVG — 批量处理，本地完成</p>
+              <div className="upload-zone__actions">
+                <button className="upload-zone__btn" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>选择文件</button>
+                <button className="upload-zone__btn upload-zone__btn--ghost" onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}>上传文件夹</button>
+              </div>
               <div className="upload-zone__hint">
                 <span>单文件 ≤ 50MB</span>
                 <span className="upload-zone__hint-divider" />
@@ -315,7 +322,13 @@ export default function App() {
             <input
               ref={fileInputRef}
               type="file" multiple
-              accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,image/gif"
+              accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,image/gif,image/svg+xml"
+              onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }}
+              style={{ display: 'none' }}
+            />
+            <input
+              ref={folderInputRef}
+              type="file" multiple webkitdirectory="" directory=""
               onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }}
               style={{ display: 'none' }}
             />
@@ -454,8 +467,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 质量（JPEG / WebP 可调；PNG 为无损，不在此控制） */}
-              {options.format !== 'ico' && options.format !== 'original' && options.format !== 'png' && (
+              {/* 质量（JPEG / WebP 可调；PNG / SVG 不在此控制） */}
+              {options.format !== 'ico' && options.format !== 'original' && options.format !== 'png' && options.format !== 'svg' && (
                 <div className="settings-group">
                   <div className="settings-group__label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -482,8 +495,8 @@ export default function App() {
                 </div>
               )}
 
-              {/* 尺寸 */}
-              {options.format !== 'ico' && (
+              {/* 尺寸（光栅格式） */}
+              {options.format !== 'ico' && options.format !== 'svg' && (
                 <div className="settings-group settings-group--full">
                   <div className="settings-group__label">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
@@ -498,6 +511,33 @@ export default function App() {
                   <select className="select-field" style={{ marginTop: 'var(--space-sm)' }} value={options.fit} onChange={(e) => updateOption('fit', e.target.value)}>
                     {FIT_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
+                </div>
+              )}
+
+              {/* SVG 设置（矢量重排 + 出血外框） */}
+              {options.format === 'svg' && (
+                <div className="settings-group settings-group--full">
+                  <div className="settings-group__label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8v8H8z"/></svg>
+                    SVG 输出设置（iconfont 兼容）
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: '4px 0 12px' }}>
+                    统一正方形画布 + 透明出血外框；自动清洗 Figma 导出的 &lt;style&gt; 类样式与断链引用，处理后可直传 iconfont。
+                  </p>
+                  <div className="dimension-row">
+                    <input type="number" className="input-field" placeholder="画布宽度" min="1" max="4096" value={options.svgWidth} onChange={(e) => updateOption('svgWidth', e.target.value)} />
+                    <span className="dimension-sep">×</span>
+                    <input type="number" className="input-field" placeholder="画布高度" min="1" max="4096" value={options.svgWidth} disabled readOnly />
+                    <span className="dimension-sep">px 正方形</span>
+                  </div>
+                  <div className="dimension-row" style={{ marginTop: 'var(--space-sm)' }}>
+                    <input type="number" className="input-field" placeholder="出血外框宽度" min="0" max="2000" value={options.svgBleed} onChange={(e) => updateOption('svgBleed', e.target.value)} />
+                    <span className="dimension-sep">px</span>
+                    <span className="dimension-sep">四周透明留白</span>
+                  </div>
+                  <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-tertiary)', lineHeight: 1.6, margin: '8px 0 0' }}>
+                    出血：图标四周统一留白，避免贴边被裁切。留空默认取画布宽度的 10%。
+                  </p>
                 </div>
               )}
 
@@ -631,7 +671,7 @@ export default function App() {
             </div>
             <div className="tech-footer__items">
               <span>纯 <strong>浏览器端</strong> 运行，无需上传服务器</span>
-              <span>基于 <strong>Canvas API</strong> 完成缩放 / 裁切 / 编码</span>
+              <span>基于 <strong>Canvas API</strong> 完成缩放 / 裁切 / 编码，SVG 走<strong>矢量重排</strong></span>
               <span>自实现 <strong>ZIP 打包</strong>，零第三方依赖</span>
               <span>输出格式：<strong>{currentFormat?.label || 'JPEG'}</strong></span>
             </div>

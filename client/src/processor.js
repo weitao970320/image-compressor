@@ -124,7 +124,7 @@ function parseDim(v) {
 }
 
 function extOf(format) {
-  return { jpeg: '.jpg', png: '.png', webp: '.webp', ico: '.ico', bmp: '.bmp', gif: '.gif' }[format] || '.png';
+  return { jpeg: '.jpg', png: '.png', webp: '.webp', ico: '.ico', bmp: '.bmp', gif: '.gif', svg: '.svg' }[format] || '.png';
 }
 
 function inferFormat(file) {
@@ -132,6 +132,7 @@ function inferFormat(file) {
   if (['jpg', 'jpeg'].includes(ext)) return 'jpeg';
   if (ext === 'png') return 'png';
   if (ext === 'webp') return 'webp';
+  if (ext === 'svg') return 'svg';
   return 'png';
 }
 
@@ -256,6 +257,161 @@ async function buildICO(img, srcW, srcH, sizes) {
   return new Blob(parts, { type: 'image/x-icon' });
 }
 
+// ----------------------------- SVG 处理（iconfont 兼容） ----------------------
+function parseViewBox(vb) {
+  if (!vb) return null;
+  const p = vb.trim().split(/[\s,]+/).map(Number);
+  if (p.length === 4 && p.every(Number.isFinite)) return { x: p[0], y: p[1], w: p[2], h: p[3] };
+  return null;
+}
+
+function round4(n) { return Math.round(n * 10000) / 10000; }
+
+// 仅将少量「安全」的 CSS 属性转为 SVG 展示属性；丢弃 CSS 变量与百分比尺寸（iconfont 易失败）
+const SVG_PAINT_PROPS = ['fill', 'stroke', 'stop-color'];
+const SVG_NUM_PROPS = ['fill-opacity', 'stroke-opacity', 'stroke-width', 'opacity', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-dasharray'];
+
+function applyCssToAttr(el, prop, val) {
+  if (!prop || !val) return;
+  if (val.includes('var(')) return; // CSS 变量无法解析，直接丢弃
+  if (/%$/.test(val) && ['fill', 'stroke', 'stop-color', 'width', 'height'].includes(prop)) return; // 百分比尺寸在 iconfont 易失败
+  const set = (name, value) => { if (!el.hasAttribute(name)) el.setAttribute(name, value); };
+  if (SVG_PAINT_PROPS.includes(prop)) set(prop, val);
+  else if (SVG_NUM_PROPS.includes(prop)) set(prop, val);
+}
+
+// 将 Figma 导出的 SVG 清洗为 iconfont 可接受的合规格式：
+// 1) 内联 <style> 中的类样式；2) 解析内联 style；3) 移除指向不存在 def 的 clip-path/mask/filter；
+// 4) 为缺 fill 的图元补 fill；5) 确保 xmlns。
+function sanitizeSvg(root) {
+  const rules = [];
+  root.querySelectorAll('style').forEach(st => {
+    const css = st.textContent || '';
+    const re = /([^{}]+)\{([^{}]+)\}/g;
+    let m;
+    while ((m = re.exec(css))) {
+      const sel = m[1].trim();
+      const decls = {};
+      m[2].split(';').forEach(d => {
+        const idx = d.indexOf(':');
+        if (idx > -1) {
+          const p = d.slice(0, idx).trim();
+          const v = d.slice(idx + 1).trim();
+          if (p && v) decls[p] = v;
+        }
+      });
+      if (Object.keys(decls).length) rules.push({ sel, decls });
+    }
+    st.remove();
+  });
+
+  root.querySelectorAll('*').forEach(el => {
+    for (const rule of rules) {
+      if (rule.sel.split(',').some(s => { try { return el.matches(s.trim()); } catch { return false; } })) {
+        for (const [p, v] of Object.entries(rule.decls)) applyCssToAttr(el, p, v);
+      }
+    }
+    const styleAttr = el.getAttribute('style');
+    if (styleAttr) {
+      styleAttr.split(';').forEach(d => {
+        const idx = d.indexOf(':');
+        if (idx > -1) applyCssToAttr(el, d.slice(0, idx).trim(), d.slice(idx + 1).trim());
+      });
+      el.removeAttribute('style');
+    }
+  });
+
+  const ids = new Set([...root.querySelectorAll('[id]')].map(e => e.getAttribute('id')));
+  root.querySelectorAll('[clip-path],[mask],[filter]').forEach(el => {
+    ['clip-path', 'mask', 'filter'].forEach(attr => {
+      const v = el.getAttribute(attr) || '';
+      const mm = v.match(/url\(#([^)]+)\)/);
+      if (mm && !ids.has(mm[1])) el.removeAttribute(attr);
+    });
+  });
+
+  root.querySelectorAll('path,rect,circle,ellipse,polygon,polyline,line,use').forEach(el => {
+    if (!el.hasAttribute('fill') && !el.hasAttribute('stroke')) el.setAttribute('fill', 'currentColor');
+  });
+
+  // 类样式已内联为展示属性，移除 class 以免冗余 / 干扰解析
+  root.querySelectorAll('[class]').forEach(el => el.removeAttribute('class'));
+
+  if (!root.hasAttribute('xmlns')) root.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  return root;
+}
+
+// 读取 SVG → 清洗 → 量测实际绘制范围 → 重排为「正方形画布 + 透明出血外框」或「原比例收紧 viewBox」
+export async function exportSVG(file, opts = {}) {
+  const text = await file.text();
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  const root = doc.documentElement;
+  if (!root || root.tagName.toLowerCase() !== 'svg') throw new Error('不是有效的 SVG 文件');
+
+  sanitizeSvg(root);
+
+  // 量测实际绘制范围（需挂载到文档才能调用 getBBox）
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden;';
+  holder.appendChild(root);
+  document.body.appendChild(holder);
+
+  let bbox;
+  try { bbox = root.getBBox(); } catch { bbox = null; }
+  document.body.removeChild(holder);
+  doc.appendChild(root); // 量测后 root 被临时移出，重新挂回文档以便重建
+
+  if (!bbox || !(bbox.width > 0) || !(bbox.height > 0)) {
+    const vb = parseViewBox(root.getAttribute('viewBox'));
+    if (vb) bbox = { x: vb.x, y: vb.y, width: vb.w, height: vb.h };
+    else {
+      const w = parseFloat(root.getAttribute('width')) || 100;
+      const h = parseFloat(root.getAttribute('height')) || 100;
+      bbox = { x: 0, y: 0, width: w, height: h };
+    }
+  }
+
+  const square = !!opts.square;
+  let outW, outH, scale, tx, ty;
+
+  if (square) {
+    outW = parseDim(opts.width) || 1024;
+    const b = parseDim(opts.bleed);
+    const bleed = (b != null && b >= 0) ? b : Math.round(outW * 0.1);
+    const inner = Math.max(1, outW - 2 * bleed);
+    scale = inner / Math.max(bbox.width, bbox.height);
+    const cw = bbox.width * scale;
+    const ch = bbox.height * scale;
+    // 内容居中于内部出血区域 [bleed, bleed, inner, inner]，四周保留透明留白
+    tx = bleed + (inner - cw) / 2 - bbox.x * scale;
+    ty = bleed + (inner - ch) / 2 - bbox.y * scale;
+    outH = outW;
+  } else {
+    // 保持原比例，仅将 viewBox 收紧到实际内容（清理 Figma 导出的多余留白）
+    scale = 1;
+    outW = Math.max(1, Math.round(bbox.width));
+    outH = Math.max(1, Math.round(bbox.height));
+    tx = -bbox.x;
+    ty = -bbox.y;
+  }
+
+  const newSvg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  newSvg.setAttribute('width', String(outW));
+  newSvg.setAttribute('height', String(outH));
+  newSvg.setAttribute('viewBox', `0 0 ${outW} ${outH}`);
+
+  const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('transform', `translate(${round4(tx)} ${round4(ty)}) scale(${round4(scale)})`);
+  while (root.firstChild) g.appendChild(root.firstChild); // 搬运清洗后的全部子节点
+  newSvg.appendChild(g);
+
+  doc.replaceChild(newSvg, root);
+
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc.documentElement);
+  const blob = new Blob([xml], { type: 'image/svg+xml' });
+  return { blob, width: outW, height: outH };
+}
+
 // --------------------------------- 主入口 -------------------------------------
 // files: File[]; options: 与 UI 一致的配置对象
 // onProgress(done, total)
@@ -270,31 +426,43 @@ export async function processFiles(files, options, onProgress) {
     const file = files[i];
     let img = null;
     try {
-      img = await loadImage(file);
-      const srcW = img.naturalWidth || img.width;
-      const srcH = img.naturalHeight || img.height;
-
       const targetFormat = options.format === 'original' ? inferFormat(file) : options.format;
       const outExt = extOf(targetFormat);
 
       let outBlob, outW, outH;
 
-      if (targetFormat === 'ico') {
-        outBlob = await buildICO(img, srcW, srcH, icoSizes);
-        const maxSize = icoSizes[icoSizes.length - 1] || 256;
-        outW = maxSize;
-        outH = maxSize;
-      } else {
-        const r = await encodeCanvas(img, srcW, srcH, {
-          width: parseDim(options.width),
-          height: parseDim(options.height),
-          fit: options.fit || 'inside',
-          format: targetFormat,
-          quality: options.quality,
+      if (targetFormat === 'svg') {
+        // SVG 走矢量重排路径，无需解码为位图
+        const r = await exportSVG(file, {
+          width: options.svgWidth,
+          bleed: options.svgBleed,
+          square: options.format === 'svg',
         });
         outBlob = r.blob;
         outW = r.width;
         outH = r.height;
+      } else {
+        img = await loadImage(file);
+        const srcW = img.naturalWidth || img.width;
+        const srcH = img.naturalHeight || img.height;
+
+        if (targetFormat === 'ico') {
+          outBlob = await buildICO(img, srcW, srcH, icoSizes);
+          const maxSize = icoSizes[icoSizes.length - 1] || 256;
+          outW = maxSize;
+          outH = maxSize;
+        } else {
+          const r = await encodeCanvas(img, srcW, srcH, {
+            width: parseDim(options.width),
+            height: parseDim(options.height),
+            fit: options.fit || 'inside',
+            format: targetFormat,
+            quality: options.quality,
+          });
+          outBlob = r.blob;
+          outW = r.width;
+          outH = r.height;
+        }
       }
 
       const baseName = file.name.replace(/\.[^.]+$/, '');

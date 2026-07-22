@@ -381,6 +381,39 @@ body {
   width: 1px; height: 10px;
   background: var(--color-border);
 }
+.upload-zone__actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+.upload-zone__btn {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 9px 20px;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.3);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.upload-zone__btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(59, 130, 246, 0.4); }
+.upload-zone__btn:active { transform: translateY(0); }
+.upload-zone__btn--ghost {
+  color: var(--color-accent-a);
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  box-shadow: none;
+}
+.upload-zone__btn--ghost:hover {
+  border-color: var(--color-accent-a);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
 
 /* ================================================================
    PRESET CHIPS
